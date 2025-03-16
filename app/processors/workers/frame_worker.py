@@ -375,7 +375,7 @@ class FrameWorker(threading.Thread):
         original_face_128 = t128(original_face_256)
         return original_face_512, original_face_384, original_face_256, original_face_128
     
-    def get_affined_face_dim_and_swapping_latents(self, original_faces: tuple, swapper_model, dfm_model, s_e, t_e, parameters,):
+    def get_affined_face_dim_and_swapping_latents(self, original_faces: tuple, swapper_model, dfm_model, s_e, t_e, parameters, tform):
         original_face_512, original_face_384, original_face_256, original_face_128 = original_faces
         if swapper_model == 'Inswapper128':
             self.models_processor.load_inswapper_iss_emap('Inswapper128')
@@ -386,18 +386,37 @@ class FrameWorker(threading.Thread):
                 latent = latent - (factor * dst_latent)
 
             dim = 1
-            if parameters['SwapperResSelection'] == '128':
-                dim = 1
-                input_face_affined = original_face_128
-            elif parameters['SwapperResSelection'] == '256':
-                dim = 2
-                input_face_affined = original_face_256
-            elif parameters['SwapperResSelection'] == '384':
-                dim = 3
-                input_face_affined = original_face_384
-            elif parameters['SwapperResSelection'] == '512':
-                dim = 4
-                input_face_affined = original_face_512
+            
+            if parameters['SwapperResAutoSelectEnableToggle']:
+                if tform.scale <= 1.5:
+                    dim = 4
+                    input_face_affined = original_face_512
+                    print("Resolution = 512")
+                elif tform.scale <= 2.0:
+                    dim = 3
+                    input_face_affined = original_face_384
+                    print("Resolution = 384")
+                elif tform.scale <= 3.0:
+                    dim = 2
+                    input_face_affined = original_face_256
+                    print("Resolution = 256")
+                else:
+                    dim = 1
+                    input_face_affined = original_face_128
+                    print("Resolution = 128")            
+            else:
+                if parameters['SwapperResSelection'] == '128':
+                    dim = 1
+                    input_face_affined = original_face_128
+                elif parameters['SwapperResSelection'] == '256':
+                    dim = 2
+                    input_face_affined = original_face_256
+                elif parameters['SwapperResSelection'] == '384':
+                    dim = 3
+                    input_face_affined = original_face_384
+                elif parameters['SwapperResSelection'] == '512':
+                    dim = 4
+                    input_face_affined = original_face_512
 
         elif swapper_model in ('InStyleSwapper256 Version A', 'InStyleSwapper256 Version B', 'InStyleSwapper256 Version C'):
             version = swapper_model[-1]
@@ -551,7 +570,10 @@ class FrameWorker(threading.Thread):
             output = out_celeb.clone()
 
         output = output.permute(2, 0, 1)
-        swap = t512(output)   
+        if dim != 4:
+            swap = t512(output)
+        else:
+            swap = output        
         return swap, prev_face
     
     def get_border_mask(self, parameters):
@@ -590,7 +612,7 @@ class FrameWorker(threading.Thread):
         dim=1
         if (s_e is not None and len(s_e) > 0) or (swapper_model == 'DeepFaceLive (DFM)' and dfm_model):
 
-            input_face_affined, dfm_model, dim, latent = self.get_affined_face_dim_and_swapping_latents(original_faces, swapper_model, dfm_model, s_e, t_e, parameters)
+            input_face_affined, dfm_model, dim, latent = self.get_affined_face_dim_and_swapping_latents(original_faces, swapper_model, dfm_model, s_e, t_e, parameters, tform)
 
             # Optional Scaling # change the transform matrix scaling from center
             if parameters['FaceAdjEnableToggle']:
@@ -627,7 +649,8 @@ class FrameWorker(threading.Thread):
                 prev_face = torch.mul(prev_face, 255)
                 prev_face = torch.clamp(prev_face, 0, 255)
                 prev_face = prev_face.permute(2, 0, 1)
-                prev_face = t512(prev_face)
+                if dim != 4:
+                    prev_face = t512(prev_face)
                 swap = torch.mul(swap, alpha)
                 prev_face = torch.mul(prev_face, 1-alpha)
                 swap = torch.add(swap, prev_face)

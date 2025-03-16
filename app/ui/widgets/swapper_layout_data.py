@@ -20,6 +20,14 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'requiredSelectionValue': 'Inswapper128',
             'help': 'Select the resolution for the swapped face in pixels. Higher values offer better quality but are slower to process.'
         },
+        'SwapperResAutoSelectEnableToggle': {
+            'level': 2,
+            'label': 'Enable Auto Resolution',
+            'default': False,
+            'parentSelection': 'SwapModelSelection',
+            'requiredSelectionValue': 'Inswapper128',
+            'help': 'Autoselect Swapper Resolution based on original Face Size (only for Inswapper).'
+        },
         'DFMModelSelection': {
             'level': 2,
             'label': 'DFM Model',
