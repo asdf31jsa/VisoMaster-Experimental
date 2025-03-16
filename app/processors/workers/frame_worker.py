@@ -11,6 +11,7 @@ import torchvision
 from torchvision import transforms
 
 import numpy as np
+import torch.nn.functional as F          
 
 from app.processors.utils import faceutil
 import app.ui.widgets.actions.common_actions as common_widget_actions
@@ -101,10 +102,10 @@ class FrameWorker(threading.Thread):
             # if x is smaller, set x to 512
             if img_x <= img_y:
                 new_height = int(512*img_y/img_x)
-                tscale = v2.Resize((new_height, 512), antialias=True)
+                tscale = v2.Resize((new_height, 512), antialias=False)
             else:
                 new_height = 512
-                tscale = v2.Resize((new_height, int(512*img_x/img_y)), antialias=True)
+                tscale = v2.Resize((new_height, int(512*img_x/img_y)), antialias=False)
 
             img = tscale(img)
 
@@ -112,14 +113,14 @@ class FrameWorker(threading.Thread):
 
         elif img_x<512:
             new_height = int(512*img_y/img_x)
-            tscale = v2.Resize((new_height, 512), antialias=True)
+            tscale = v2.Resize((new_height, 512), antialias=False)
             img = tscale(img)
 
             # det_scale = torch.div(new_height, img_y)
 
         elif img_y<512:
             new_height = 512
-            tscale = v2.Resize((new_height, int(512*img_x/img_y)), antialias=True)
+            tscale = v2.Resize((new_height, int(512*img_x/img_y)), antialias=False)
             img = tscale(img)
 
             # det_scale = torch.div(new_height, img_y)
@@ -198,7 +199,10 @@ class FrameWorker(threading.Thread):
 
         if control['FrameEnhancerEnableToggle'] and not compare_mode:
             img = self.enhance_core(img, control=control)
-
+        
+        if img_x < 512 or img_y < 512:
+            tscale_back = v2.Resize((img_y, img_x), antialias=False)
+            img = tscale_back(img)
         img = img.permute(1,2,0)
         img = img.cpu().numpy()
         # RGB to BGR
@@ -735,26 +739,14 @@ class FrameWorker(threading.Thread):
             swap = v2.functional.adjust_sharpness(swap, parameters['ColorSharpnessDecimalSlider'])
             swap = v2.functional.adjust_hue(swap, parameters['ColorHueDecimalSlider'])
 
-            if parameters['ColorNoiseDecimalSlider'] > 0:
-                swap = swap.permute(1, 2, 0).type(torch.float32)
-                swap = swap + parameters['ColorNoiseDecimalSlider']*torch.randn(512, 512, 3, device=self.models_processor.device)
-                swap = torch.clamp(swap, 0, 255)
-                swap = swap.permute(2, 0, 1)
 
-        if parameters['JPEGCompressionEnableToggle']:
-            try:
-                swap = faceutil.jpegBlur(swap, parameters["JPEGCompressionAmountSlider"])
-            except:
-                pass
-        if parameters['FinalBlendAdjEnableToggle'] and parameters['FinalBlendAdjEnableToggle'] > 0:
-            final_blur_strength = parameters['FinalBlendAmountSlider']  # Ein Parameter steuert beides
-            # Bestimme kernel_size und sigma basierend auf dem Parameter
-            kernel_size = 2 * final_blur_strength + 1  # Ungerade Zahl, z.B. 3, 5, 7, ...
-            sigma = final_blur_strength * 0.1  # Sigma proportional zur Stärke
-            # Gaussian Blur anwenden
-            gaussian_blur = transforms.GaussianBlur(kernel_size=kernel_size, sigma=sigma)
-            swap = gaussian_blur(swap)
+        if parameters["BlockShiftEnableToggle"]:
+            swap_blockshift = self.apply_block_shift_gpu(swap, parameters["BlockShiftAmountSlider"], parameters["BlockShiftMaxAmountSlider"])        
+            swap = torch.add(torch.mul(swap_blockshift, parameters["BlockShiftBlendAmountSlider"]/100.0), torch.mul(swap, 1 - parameters["BlockShiftBlendAmountSlider"]/100.0))                            
 
+        if parameters['ColorNoiseDecimalSlider'] > 0:
+            noise = (torch.rand_like(swap) - 0.5) * 2 * parameters['ColorNoiseDecimalSlider']
+            swap = torch.clamp(swap + noise, 0.0, 255.0)
         # Add blur to swap_mask results
         gauss = transforms.GaussianBlur(parameters['OverallMaskBlendAmountSlider'] * 2 + 1, (parameters['OverallMaskBlendAmountSlider'] + 1) * 0.2)
         swap_mask = gauss(swap_mask)
@@ -763,8 +755,6 @@ class FrameWorker(threading.Thread):
         swap_mask = torch.mul(swap_mask, border_mask)
         swap_mask = t512(swap_mask)
         
-        swap = torch.mul(swap, swap_mask)
-
         # For face comparing
         original_face_512_clone = None
         if self.is_view_face_compare:
@@ -804,24 +794,43 @@ class FrameWorker(threading.Thread):
         swap = v2.functional.pad(swap, (0,0,img.shape[2]-512, img.shape[1]-512))
         swap = v2.functional.affine(swap, tform.inverse.rotation*57.2958, (tform.inverse.translation[0], tform.inverse.translation[1]), tform.inverse.scale, 0,interpolation=v2.InterpolationMode.BILINEAR, center = (0,0) )
         swap = swap[0:3, top:bottom, left:right]
-        swap = swap.permute(1, 2, 0)
+        #swap = swap.permute(1, 2, 0)
 
         # Untransform the swap mask
         swap_mask = v2.functional.pad(swap_mask, (0,0,img.shape[2]-512, img.shape[1]-512))
         swap_mask = v2.functional.affine(swap_mask, tform.inverse.rotation*57.2958, (tform.inverse.translation[0], tform.inverse.translation[1]), tform.inverse.scale, 0, interpolation=v2.InterpolationMode.BILINEAR, center = (0,0) )
         swap_mask = swap_mask[0:1, top:bottom, left:right]
-        swap_mask = swap_mask.permute(1, 2, 0)
+        #swap_mask = swap_mask.permute(1, 2, 0)
+
         swap_mask = torch.sub(1, swap_mask)
 
         # Apply the mask to the original image areas
         img_crop = img[0:3, top:bottom, left:right]
-        img_crop = img_crop.permute(1,2,0)
+        #img_crop = img_crop.permute(1,2,0)
         img_crop = torch.mul(swap_mask,img_crop)
-            
+
+        if parameters['JPEGCompressionEnableToggle']:
+            try:
+                swap = faceutil.jpegBlur(swap, parameters["JPEGCompressionAmountSlider"])
+            except:
+                pass
+                
+        if parameters['FinalBlendAdjEnableToggle'] and parameters['FinalBlendAdjEnableToggle'] > 0:
+            final_blur_strength = parameters['FinalBlendAmountSlider']  # Ein Parameter steuert beides
+            # Bestimme kernel_size und sigma basierend auf dem Parameter
+            kernel_size = 2 * final_blur_strength + 1  # Ungerade Zahl, z.B. 3, 5, 7, ...
+            sigma = final_blur_strength * 0.1  # Sigma proportional zur Stärke
+            # Gaussian Blur anwenden
+            gaussian_blur = transforms.GaussianBlur(kernel_size=kernel_size, sigma=sigma)
+            swap = gaussian_blur(swap)            
+        #swap = swap.permute(1,2,0)
+        
+        swap = torch.mul(swap, 1-swap_mask)                                                                                                      
         #Add the cropped areas and place them back into the original image
         swap = torch.add(swap, img_crop)
         swap = swap.type(torch.uint8)
-        swap = swap.permute(2,0,1)
+        #swap = swap.permute(2,0,1)
+        swap = swap.clamp(0, 255)                    
         img[0:3, top:bottom, left:right] = swap
 
 
@@ -1310,3 +1319,54 @@ class FrameWorker(threading.Thread):
                 img = faceutil.paste_back_adv(out, M_c2o, img, mask_crop)
 
         return img
+
+    def apply_block_shift_gpu(self, img, block_size=8, shift_max=2):
+        """
+        Simuliert eine Blockverschiebung wie bei schlechter MPEG-Kompression.
+        GPU-optimiert ohne Schleifen.
+
+        - img: PyTorch Tensor mit Shape (C, H, W), Wertebereich [0,255], auf GPU
+        - block_size: Größe der Blöcke (z. B. 8 oder 16)
+        - shift_max: Maximale Verschiebung in Pixeln für jeden Block
+
+        Rückgabe:
+        - Verzerrtes Bild als Tensor (C, H, W), bleibt auf GPU
+        """
+
+        block_size = 2 ** block_size
+        C, H, W = img.shape
+        img = img.float()
+
+        # Sicherstellen, dass Höhe/Breite durch block_size teilbar sind
+        H_crop = H - (H % block_size)
+        W_crop = W - (W % block_size)
+        img = img[:, :H_crop, :W_crop]
+
+        # Blöcke berechnen
+        H_blocks = H_crop // block_size
+        W_blocks = W_crop // block_size
+
+        # Zufällige Verschiebungen pro Block
+        shift_x = torch.randint(-shift_max, shift_max + 1, (H_blocks, W_blocks), device=img.device)
+        shift_y = torch.randint(-shift_max, shift_max + 1, (H_blocks, W_blocks), device=img.device)
+
+        # Erstelle Grid für grid_sample
+        base_grid = F.affine_grid(torch.eye(2, 3, device=img.device).unsqueeze(0), 
+                                  [1, C, H_crop, W_crop], align_corners=False)
+        
+        # Skalieren, um Pixelverschiebung korrekt abzubilden
+        shift_x = shift_x.float() * (2 / W_crop)
+        shift_y = shift_y.float() * (2 / H_crop)
+
+        # In Grid umwandeln (Pixel → Normalisierte Koordinaten)
+        shift_x = shift_x.repeat_interleave(block_size, dim=0).repeat_interleave(block_size, dim=1)
+        shift_y = shift_y.repeat_interleave(block_size, dim=0).repeat_interleave(block_size, dim=1)
+
+        # Grid anpassen
+        base_grid[..., 0] += shift_x
+        base_grid[..., 1] += shift_y
+
+        # Bild verzerren
+        distorted_img = F.grid_sample(img.unsqueeze(0), base_grid, mode='bilinear', padding_mode='border', align_corners=False)
+        
+        return distorted_img.squeeze(0).clamp(0, 255)

@@ -1020,16 +1020,16 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'requiredToggleValue': True,
             'help': 'Changes the Gamma.'
         },
+    },
+    'Distortion Simulation':{                                        
         'ColorNoiseDecimalSlider': {
             'level': 1,
             'label': 'Noise',
-            'min_value': '0.0',
-            'max_value': '20.0',
-            'default': '0.0',
-            'step': 0.5,
-            'decimals': 1,
-            'parentToggle': 'ColorEnableToggle',
-            'requiredToggleValue': True,
+            'min_value': '0.00',
+            'max_value': '20.00',
+            'default': '0.00',
+            'step': 0.05,
+            'decimals': 2,
             'help': 'Add noise to swapped face.'
         },
 
@@ -1044,12 +1044,51 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Compression',
             'min_value': '1',
             'max_value': '100',
-            'default': '50',
+            'default': '80',
             'step': 1,
             'parentToggle': 'JPEGCompressionEnableToggle',
             'requiredToggleValue': True,
             'help': 'Adjust the JPEG Compression amount'
-        }
+        },        
+        'BlockShiftEnableToggle': {
+            'level': 1,
+            'label': 'Block Shift',
+            'default': False,
+            'help': 'Apply MPEG Compression like Block Shift Effect',
+        },
+        'BlockShiftAmountSlider': {
+            'level': 2,
+            'label': 'Block Size',
+            'min_value': '1',
+            'max_value': '5',
+            'default': '2',
+            'step': 1,
+            'parentToggle': 'BlockShiftEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Size of (Pixel) Blocks'
+        },        
+        'BlockShiftMaxAmountSlider': {
+            'level': 2,
+            'label': 'Shift Maximum',
+            'min_value': '1',
+            'max_value': '10',
+            'default': '2',
+            'step': 1,
+            'parentToggle': 'BlockShiftEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Maximum Shift of each Block'
+        },        
+        'BlockShiftBlendAmountSlider': {
+            'level': 2,
+            'label': 'Blend Amount',
+            'min_value': '1',
+            'max_value': '100',
+            'default': '20',
+            'step': 1,
+            'parentToggle': 'BlockShiftEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Blend Amount'
+        },       
     },
     'Blend Adjustments':{
         'FinalBlendAdjEnableToggle': {
