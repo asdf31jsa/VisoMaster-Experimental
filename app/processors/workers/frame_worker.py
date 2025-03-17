@@ -11,6 +11,8 @@ import torchvision
 from torchvision import transforms
 
 import numpy as np
+import torch.nn.functional as F 
+import cv2
 
 from app.processors.utils import faceutil
 import app.ui.widgets.actions.common_actions as common_widget_actions
@@ -638,6 +640,8 @@ class FrameWorker(threading.Thread):
         if parameters['FaceExpressionEnableToggle']:
             swap = self.apply_face_expression_restorer(original_face_512, swap, parameters)
 
+        swap_original = swap.clone()
+
         # Restorer
         if parameters["FaceRestorerEnableToggle"]:
             swap = self.models_processor.apply_facerestorer(swap, parameters['FaceRestorerDetTypeSelection'], parameters['FaceRestorerTypeSelection'], parameters["FaceRestorerBlendSlider"], parameters['FaceFidelityWeightDecimalSlider'], control['DetectorScoreSlider'])
@@ -661,11 +665,24 @@ class FrameWorker(threading.Thread):
             gauss = transforms.GaussianBlur(parameters['OccluderXSegBlurSlider']*2+1, (parameters['OccluderXSegBlurSlider']+1)*0.2)
             swap_mask = gauss(swap_mask)
 
-        if parameters["FaceParserEnableToggle"]:
+        if parameters["FaceParserEnableToggle"] or ((parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]):
+                                                
             #cv2.imwrite('swap.png', cv2.cvtColor(swap.permute(1, 2, 0).cpu().numpy(), cv2.COLOR_RGB2BGR))
-            mask = self.models_processor.apply_face_parser(swap, parameters)
-            mask = t128(mask)
-            swap_mask = torch.mul(swap_mask, mask)
+            mask, texture_mask = self.models_processor.apply_face_parser(swap, parameters)
+            mask_original, texture_mask_original = self.models_processor.apply_face_parser(original_face_512, parameters)
+                                                                                                                                                                     
+            if parameters["FaceParserEnableToggle"]:
+                mask = torch.minimum(mask, mask_original)
+                
+                mask = t128(mask)
+                swap_mask = torch.mul(swap_mask, mask)
+            if (parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]:
+                texture_mask = torch.minimum(texture_mask, texture_mask_original)            
+                texture_mask = t512(texture_mask)
+                
+                adjusted_mask = torch.where(texture_mask < 0.8, texture_mask + (parameters['FaceParserBlendTextureSlider']/100), texture_mask)           
+                adjusted_mask = torch.add(texture_mask, (parameters['FaceParserBlendTextureSlider']/100))
+                adjusted_mask = torch.clamp(adjusted_mask, 0, 1) 
 
         # CLIPs
         if parameters["ClipEnableToggle"]:
@@ -696,12 +713,46 @@ class FrameWorker(threading.Thread):
             img_swap_mask = t128(img_swap_mask)
             swap_mask = torch.mul(swap_mask, img_swap_mask)
 
+        if parameters["FaceRestorerEnableToggle"]:
+            alpha_restorer = float(parameters["FaceRestorerBlendSlider"])/100.0
+            swap = torch.add(torch.mul(swap, alpha_restorer), torch.mul(swap_original, 1 - alpha_restorer))                            
+
+        if parameters["FaceRestorerEnable2Toggle"]:
+            alpha_restorer2 = float(parameters["FaceRestorerBlend2Slider"])/100.0
+            swap = torch.add(torch.mul(swap2, alpha_restorer2), torch.mul(swap, 1 - alpha_restorer2))                            
+
+        swap_backup = swap.clone()
+
+        # Texture Transfer
+        if parameters["TransferTextureEnableToggle"]:      
+            TransferTextureKernelSizeSlider = 3
+            TransferTextureWeightDecimalSlider = 0.0
+            TransferTextureLambdSlider = 3
+            TransferTexturePhiDecimalSlider = 3.0
+            TransferTextureGammaDecimalSlider = 0.1
+            #gradient_texture = self.gradient_magnitude(original_face_512, parameters['TransferTextureKernelSizeSlider'], parameters['TransferTextureWeightDecimalSlider'], parameters['TransferTextureSigmaDecimalSlider'], parameters['TransferTextureLambdSlider'], parameters['TransferTextureGammaDecimalSlider'], parameters['TransferTexturePhiDecimalSlider'], parameters['TransferTextureThetaSlider'])
+            gradient_texture = self.gradient_magnitude(original_face_512, TransferTextureKernelSizeSlider, TransferTextureWeightDecimalSlider, parameters['TransferTextureSigmaDecimalSlider'], TransferTextureLambdSlider, TransferTextureGammaDecimalSlider, TransferTexturePhiDecimalSlider, parameters['TransferTextureThetaSlider'])
+            gradient_texture = (gradient_texture - gradient_texture.mean()) * parameters['TransferTextureBlendAmountSlider']/50
+
+            #swap = (1 - parameters['TransferTextureAlphaSlider']/100) * swap + parameters['TransferTextureAlphaSlider']/100 * (swap + gradient_texture)
+            swap = swap + gradient_texture
+            swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, 100)
+            swap_backup = faceutil.histogram_matching_DFL_test(original_face_512, swap_backup, 100)
+            if parameters["ExcludeMaskEnableToggle"]:                                                 
+                swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
+                if parameters["DifferencingEnableToggle"]:
+                    swap_backup = swap
+                    swap_backup = swap_backup.clamp(0, 255)
+            swap = swap.clamp(0, 255)
+
         # Face Diffing
         if parameters["DifferencingEnableToggle"]:
             mask = self.models_processor.apply_fake_diff(swap, original_face_512, parameters["DifferencingAmountSlider"])
             gauss = transforms.GaussianBlur(parameters['DifferencingBlendAmountSlider']*2+1, (parameters['DifferencingBlendAmountSlider']+1)*0.2)
             mask = gauss(mask.type(torch.float32))
             swap = swap * mask + original_face_512*(1-mask)
+            if parameters["ExcludeMaskEnableToggle"]:
+                swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
 
         if parameters["AutoColorEnableToggle"]:
             # Histogram color matching original face on swapped face
@@ -1310,3 +1361,41 @@ class FrameWorker(threading.Thread):
                 img = faceutil.paste_back_adv(out, M_c2o, img, mask_crop)
 
         return img
+
+    def gradient_magnitude(self, image, kernel_size, weighting_strength, sigma, lambd, gamma, psi, theta):
+        image = image.float()
+
+        start_angle = 0    # start angle
+        end_angle = 180    # end angle
+        num_values = theta  # amount        
+
+        #kernel_size = max(1, 2 * kernel_size - 1)
+        gamma = 0.5
+        angles_deg = torch.linspace(start_angle, end_angle, num_values, device=image.device)
+        theta_values = angles_deg * (torch.pi / 180.0)
+        
+        magnitude = torch.stack([
+            self.apply_gabor_filter(image[c], kernel_size, sigma, lambd, gamma, psi, theta_values)
+            for c in range(image.shape[0])
+        ], dim=0)  # Stackt die Ergebnisse zu [C, H, W]
+
+        inverted_magnitude = magnitude.amax(dim=(1, 2), keepdim=True) - magnitude  # Max pro Kanal
+        
+        return inverted_magnitude  # [C, H, W]
+
+
+    def apply_gabor_filter(self, image, kernel_size, sigma, lambd, gamma, psi, theta_values):
+        filtered_images = []
+
+        image = image.float().unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
+        theta_values = theta_values.tolist()  # Tensor → list of angles
+
+        for theta in theta_values:
+            gabor_kernel = cv2.getGaborKernel((kernel_size, kernel_size), sigma, theta, lambd, gamma, psi, ktype=cv2.CV_32F)
+            gabor_kernel = torch.tensor(gabor_kernel, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(image.device)
+
+            filtered = F.conv2d(image, gabor_kernel, padding=kernel_size // 2)
+
+            filtered_images.append(filtered.squeeze(0).squeeze(0))  # Zurück zu [H, W]
+
+        return torch.stack(filtered_images).mean(0)                            

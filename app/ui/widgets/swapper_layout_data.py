@@ -262,6 +262,8 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'requiredToggleValue': True,
             'help': 'Determines the factor of likeness between the source and assigned faces.'
         },
+    },
+    'Swap <--> Original Interference': {
         'DifferencingEnableToggle': {
             'level': 1,
             'label': 'Differencing',
@@ -290,7 +292,148 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'requiredToggleValue': True,
             'help': 'Blend differecing value.'
         },
-    },
+        'TransferTextureEnableToggle': {
+            'level': 1,
+            'label': 'Transfer Texture',
+            'default': False,
+            'help': 'Enable Texture Transfer'
+        },
+        'TransferTextureBlendAmountSlider': {
+            'level': 2,
+            'label': 'Blend Strength',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '20',
+            'step': 1,
+            'parentToggle': 'TransferTextureEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Weaken/Strengthen calculated Texture Differences.'
+        },               
+        'TransferTextureSigmaDecimalSlider': {
+            'level': 2,
+            'label': 'Sigma',
+            'min_value': '0.50',
+            'max_value': '1.50',
+            'default': '1.00',
+            'decimals': 2,
+            'step': 0.01,
+            'parentToggle': 'TransferTextureEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Higher Values better preserves the Likeness, but can have color issues or other problems'
+        },        
+        'TransferTextureThetaSlider': {
+            'level': 2,
+            'label': 'Theta',
+            'min_value': '1',
+            'max_value': '8',
+            'default': '1',
+            'step': 1,
+            'parentToggle': 'TransferTextureEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Higher values (above 4) can sometimes allow higher Blend/Sigma Values'
+        },         
+        'ExcludeMaskEnableToggle': {
+            'level': 1,
+            'label': 'Exclude-Features Mask',
+            'default': False,
+            'help': 'Exclude Faceparts from Texture Transfere and Face Differencing and uses the original Swap there.'
+        },
+        'EyebrowParserTextureSlider': {
+            'level': 2,
+            'label': 'Eyebrows',
+            'min_value': '0',
+            'max_value': '10',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Exclude Faceparts (Eyes, Eyebrows, Nose, Mouth, Lips, Neck), 0=whole face is used, 1= Parts not included, 1+ = increase Parts size. Most of the time should be 1/1+. try 0 on low quality/artefacted targets'
+        },         
+        'EyeParserTextureSlider': {
+            'level': 2,
+            'label': 'Eyes',
+            'min_value': '0',
+            'max_value': '10',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Exclude Faceparts (Eyes, Eyebrows, Nose, Mouth, Lips, Neck), 0=whole face is used, 1= Parts not included, 1+ = increase Parts size. Most of the time should be 1/1+. try 0 on low quality/artefacted targets'
+        },        
+        'NoseParserTextureSlider': {
+            'level': 2,
+            'label': 'Nose',
+            'min_value': '0',
+            'max_value': '10',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Exclude Faceparts (Eyes, Eyebrows, Nose, Mouth, Lips, Neck), 0=whole face is used, 1= Parts not included, 1+ = increase Parts size. Most of the time should be 1/1+. try 0 on low quality/artefacted targets'
+        },        
+        'MouthParserTextureSlider': {
+            'level': 2,
+            'label': 'Mouth',
+            'min_value': '0',
+            'max_value': '10',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Exclude Faceparts (Eyes, Eyebrows, Nose, Mouth, Lips, Neck), 0=whole face is used, 1= Parts not included, 1+ = increase Parts size. Most of the time should be 1/1+. try 0 on low quality/artefacted targets'                                       
+        },        
+        'NeckParserTextureSlider': {
+            'level': 2,
+            'label': 'Neck',
+            'min_value': '0',
+            'max_value': '10',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Exclude Faceparts (Eyes, Eyebrows, Nose, Mouth, Lips, Neck), 0=whole face is used, 1= Parts not included, 1+ = increase Parts size. Most of the time should be 1/1+. try 0 on low quality/artefacted targets'
+        },        
+        'BackgroundParserTextureSlider': {                        
+            'level': 2,
+            'label': 'Background',
+            'min_value': '-50',
+            'max_value': '50',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+                                   
+            'requiredToggleValue': True,
+            'help': 'Increase/Decrease Background Area for Texture Transfer.'
+        },  
+        'FaceParserBlendTextureSlider': {
+                                                                                                                                                      
+          
+                             
+                       
+                                    
+                             
+            'level': 2,
+            'label': 'Excluded Texture Blend',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Blend Amount of Excluded Feature Areas'
+        },         
+        'FaceParserBlurTextureSlider': {
+            'level': 2,
+            'label': 'Texture Mask Blur',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '5',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Mask Blur on excluded Area Edges'
+        },    
+    },        
     'Face Mask':{
         'BorderBottomSlider':{
             'level': 1,

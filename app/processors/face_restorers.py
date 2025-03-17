@@ -102,8 +102,8 @@ class FaceRestorers:
             outpred = v2.functional.affine(outpred, tform.inverse.rotation*57.2958, (tform.inverse.translation[0], tform.inverse.translation[1]), tform.inverse.scale, 0, interpolation=v2.InterpolationMode.BILINEAR, center = (0,0) )
 
         # Blend
-        alpha = float(restorer_blend)/100.0
-        outpred = torch.add(torch.mul(outpred, alpha), torch.mul(swapped_face_upscaled, 1-alpha))
+        #alpha = float(restorer_blend)/100.0
+        #outpred = torch.add(torch.mul(outpred, alpha), torch.mul(swapped_face_upscaled, 1-alpha))
 
         return outpred
 
