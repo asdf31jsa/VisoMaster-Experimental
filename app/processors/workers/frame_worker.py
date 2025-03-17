@@ -1310,3 +1310,93 @@ class FrameWorker(threading.Thread):
                 img = faceutil.paste_back_adv(out, M_c2o, img, mask_crop)
 
         return img
+  def face_restorer_auto(self, original_face_512_autorestore, swap, swap_original, alpha, adjust_sharpness, swap_mask):
+        original_face_512_autorestore = original_face_512_autorestore.float()
+        #original_face_512_autorestore = original_face_512_autorestore * swap_mask
+        swap_autorestore = swap.clone()
+        #swap_autorestore = swap_autorestore * swap_mask
+        swap_original_autorestore = swap_original.clone()
+        #swap_original_autorestore = swap_original_autorestore * swap_mask
+
+        sharpness_original = self.tenengrad_sharpness(original_face_512_autorestore) + adjust_sharpness
+        
+        max_iterations = 7
+        alpha_min, alpha_max = 0.0, 1.0
+        tolerance = 5.0  
+        min_alpha_change = 0.05
+        iteration = 0
+        prev_alpha = alpha
+
+        while iteration < max_iterations:
+            swap2 = swap * alpha + swap_original * (1 - alpha)
+            
+            swap2_masked = torch.where(original_face_512_autorestore != 0.0, swap2, torch.tensor(0.0, device=swap2.device))
+
+            sharpness_swap = self.tenengrad_sharpness(swap2_masked)
+            sharpness_diff = sharpness_swap - sharpness_original
+
+            print(f"Iteration {iteration}: alpha={alpha}, sharpness={sharpness_swap}, diff={sharpness_diff}")
+
+            if abs(sharpness_diff) < tolerance:
+                break
+
+            if sharpness_diff < 0:  # Zu weich -> Alpha erhöhen
+                alpha_min = alpha
+                alpha = (alpha + alpha_max) / 2 
+            else:  # Zu scharf -> Alpha verringern
+                alpha_max = alpha
+                alpha = (alpha + alpha_min) / 2  
+            
+
+
+            if alpha < 0.07:
+                swap_blur = swap_original.clone()
+                for iteration_blur in range(0, 7): 
+                    if iteration_blur != 0:
+                        kernel_size = 2 * iteration_blur + 1
+                        sigma = iteration_blur * 0.2
+                        swap2 = transforms.GaussianBlur(kernel_size, sigma)(swap_blur)
+                    else:
+                        swap2 = swap_blur
+                    swap2_masked = torch.where(original_face_512_autorestore != 0.0, swap2, torch.tensor(0.0, device=swap2.device))
+                    sharpness_swap = self.tenengrad_sharpness(swap2_masked)
+                    print("sharpness_swap: ", sharpness_swap)
+
+                    if sharpness_swap - sharpness_original < tolerance:
+                        break
+                print("blur size: ", iteration_blur)        
+                break
+                
+            if abs(prev_alpha - alpha) < min_alpha_change:
+                break
+            
+            prev_alpha = alpha 
+            iteration += 1
+            
+        swap = swap2
+
+        print(f"Final: alpha={alpha}, sharp_original={sharpness_original}, sharp_swap_final={sharpness_swap}, iterations={iteration}")
+        return swap
+
+    def tenengrad_sharpness(self, image):
+        sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], device=image.device, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+        sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], device=image.device, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
+
+        gray_image = torch.mean(image.float(), dim=0, keepdim=True)  # Grayscale (Mittelwert der Kanäle)
+        
+        grad_x = torch.nn.functional.conv2d(gray_image.unsqueeze(0), sobel_x, padding=1)
+        grad_y = torch.nn.functional.conv2d(gray_image.unsqueeze(0), sobel_y, padding=1)
+
+        gradient_energy = torch.mean(grad_x**2 + grad_y**2)  # [1, 1, H, W]
+
+        gradient_energy_2d = gradient_energy.squeeze(0).squeeze(0)  # shape: [H, W]
+        gray_image_2d = gray_image.squeeze(0)  # shape: [H, W]
+        
+        valid_mask = (gray_image_2d != 0.0).float() 
+        
+        valid_count = valid_mask.sum()
+        if valid_count.item() == 0:
+            return torch.tensor(0.0, device=image.device)
+        
+        sharpness = (gradient_energy_2d * valid_mask).sum() / valid_count
+        return sharpness

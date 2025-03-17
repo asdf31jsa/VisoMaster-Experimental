@@ -68,6 +68,25 @@ COMMON_LAYOUT_DATA: LayoutDictTypes = {
             'requiredToggleValue': True,
             'help': 'Control the blend ratio between the restored face and the swapped face.'
         },
+        'FaceRestorerAutoEnableToggle': {
+            'level': 2,
+            'label': 'Auto Restore',
+            'default': False,
+            'parentToggle': 'FaceRestorerEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Auto Adjust Restorer Blend Amount'
+        },
+        'FaceRestorerAutoAdjustSlider': {
+            'level': 3,
+            'label': 'adjust sharpness',
+            'min_value': '-500',
+            'max_value': '500',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'FaceRestorerAutoEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Adjust Sharpness calculation. under construction'
+        },                                          
         'FaceRestorerEnable2Toggle': {
             'level': 1,
             'label': 'Enable Face Restorer 2',
