@@ -270,17 +270,28 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'default': False,
             'help': 'Allow some of the original face to show in the swapped result when the difference between the two images is small. Can help bring back some texture to the swapped face.'
         },
-        'DifferencingAmountSlider': {
+        'DifferencingLowerLimitThreshSlider': {
             'level': 2,
-            'label': 'Amount',
+            'label': 'Differenc Lower Limit',
             'min_value': '0',
             'max_value': '100',
-            'default': '4',
+            'default': '20',
             'step': 1,
             'parentToggle': 'DifferencingEnableToggle',
             'requiredToggleValue': True,
-            'help': 'Higher values relaxes the similarity constraint.'
-        },
+            'help': 'Lower Difference Treshold, Pixels with difference below this will get differenced with original Face (like the Amount Slider in vanilla VisoMaster'
+        },        
+        'DifferencingLowerLimitValueSlider': {
+            'level': 2,
+            'label': 'Lower Amount',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '50',
+            'step': 1,
+            'parentToggle': 'DifferencingEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Blend Amount for Pixels below Treshold (0= 100% original Face, 100= 100% swapped Face)'
+        },                  
         'DifferencingBlendAmountSlider': {
             'level': 2,
             'label': 'Blend Amount',
@@ -290,8 +301,8 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'step': 1,
             'parentToggle': 'DifferencingEnableToggle',
             'requiredToggleValue': True,
-            'help': 'Blend differecing value.'
-        },
+            'help': 'Mask Blur for smoother transitions'
+        }, 
         'TransferTextureEnableToggle': {
             'level': 1,
             'label': 'Transfer Texture',

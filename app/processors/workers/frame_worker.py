@@ -747,12 +747,13 @@ class FrameWorker(threading.Thread):
 
         # Face Diffing
         if parameters["DifferencingEnableToggle"]:
-            mask = self.models_processor.apply_fake_diff(swap, original_face_512, parameters["DifferencingAmountSlider"])
+            mask = self.models_processor.apply_fake_diff(swap, original_face_512, parameters['DifferencingLowerLimitThreshSlider']/100, parameters['DifferencingLowerLimitValueSlider']/100)
             gauss = transforms.GaussianBlur(parameters['DifferencingBlendAmountSlider']*2+1, (parameters['DifferencingBlendAmountSlider']+1)*0.2)
             mask = gauss(mask.type(torch.float32))
             swap = swap * mask + original_face_512*(1-mask)
             if parameters["ExcludeMaskEnableToggle"]:
                 swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
+            swap = swap.clamp(0, 255)
 
         if parameters["AutoColorEnableToggle"]:
             # Histogram color matching original face on swapped face

@@ -405,5 +405,5 @@ class ModelsProcessor(QtCore.QObject):
     def restore_eyes(self, img_orig, img_swap, kpss_orig, blend_alpha=0.5, feather_radius=10, size_factor=3.5, radius_factor_x=1.0, radius_factor_y=1.0, x_offset=0, y_offset=0, eye_spacing_offset=0):
         return self.face_masks.restore_eyes(img_orig, img_swap, kpss_orig, blend_alpha, feather_radius, size_factor, radius_factor_x, radius_factor_y, x_offset, y_offset, eye_spacing_offset)
 
-    def apply_fake_diff(self, swapped_face, original_face, DiffAmount):
-        return self.face_masks.apply_fake_diff(swapped_face, original_face, DiffAmount)
+    def apply_fake_diff(self, swapped_face, original_face, lower_limit_thresh, lower_value):
+        return self.face_masks.apply_fake_diff(swapped_face, original_face, lower_limit_thresh, lower_value)
