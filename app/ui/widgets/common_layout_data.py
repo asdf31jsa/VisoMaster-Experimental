@@ -85,8 +85,8 @@ COMMON_LAYOUT_DATA: LayoutDictTypes = {
             'step': 1,
             'parentToggle': 'FaceRestorerAutoEnableToggle',
             'requiredToggleValue': True,
-            'help': 'Adjust Sharpness calculation. under construction'
-        },                                          
+            'help': 'under construction, Not really an effect atm'
+        },        
         'FaceRestorerEnable2Toggle': {
             'level': 1,
             'label': 'Enable Face Restorer 2',

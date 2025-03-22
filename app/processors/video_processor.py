@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 import gc
 from functools import partial
+from datetime import datetime
 
 import cv2
 import numpy
@@ -399,8 +400,9 @@ class VideoProcessor(QObject):
     def create_ffmpeg_subprocess(self):
         # Use Dimensions of the last processed frame as it could be different from the original frame due to restorers and frame enhancers 
         frame_height, frame_width, _ = self.current_frame.shape
-
-        self.temp_file = r'temp_output.mp4'
+        date_and_time = datetime.now().strftime(r'%Y_%m_%d_%H_%M_%S')
+        self.temp_file = f'temp_output_{date_and_time}.mp4'
+        #output_filename = f'{temp_path.stem}_{date_and_time}.mp4'
         if Path(self.temp_file).is_file():
             os.remove(self.temp_file)
 

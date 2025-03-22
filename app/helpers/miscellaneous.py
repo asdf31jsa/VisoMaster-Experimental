@@ -34,14 +34,40 @@ class ParametersDict(UserDict):
             self.__setitem__(key, self._default_parameters[key])
             return self._default_parameters[key]     
 
-def get_scaling_transforms():
-    t512 = v2.Resize((512, 512), interpolation=v2.InterpolationMode.BILINEAR, antialias=False)
-    t384 = v2.Resize((384, 384), interpolation=v2.InterpolationMode.BILINEAR, antialias=False)
-    t256 = v2.Resize((256, 256), interpolation=v2.InterpolationMode.BILINEAR, antialias=False)
-    t128 = v2.Resize((128, 128), interpolation=v2.InterpolationMode.BILINEAR, antialias=False)
-    return t512, t384, t256, t128  
+def get_scaling_transforms(parameters):
+    #print(parameters)
+    if parameters["InterpolationTypeSelection"] == 'NEAREST/BILINEAR':
+        interpolation_method = v2.InterpolationMode.NEAREST
+        interpolation_method_affine = v2.InterpolationMode.BILINEAR        
+        interpolation_method_grid = 'nearest'
+    elif parameters["InterpolationTypeSelection"] == 'NEAREST_EXACT/NEAREST':
+        interpolation_method = v2.InterpolationMode.NEAREST_EXACT
+        interpolation_method_affine = v2.InterpolationMode.NEAREST        
+        interpolation_method_grid = 'nearest_exact'
+    elif parameters["InterpolationTypeSelection"] == 'BICUBIC/NEAREST':
+        interpolation_method = v2.InterpolationMode.BICUBIC
+        interpolation_method_affine = v2.InterpolationMode.NEAREST        
+        interpolation_method_grid = 'bicubic'    
+    elif parameters["InterpolationTypeSelection"] == 'BICUBIC/BILINEAR':
+        interpolation_method = v2.InterpolationMode.BICUBIC
+        interpolation_method_affine = v2.InterpolationMode.BILINEAR        
+        interpolation_method_grid = 'lanczos'
+    else:
+        interpolation_method = v2.InterpolationMode.BILINEAR
+        interpolation_method_affine = v2.InterpolationMode.BILINEAR        
+        interpolation_method_grid = 'bilinear'
 
-t512, t384, t256, t128 = get_scaling_transforms()
+    if parameters["AntialiasTypeSelection"] == 'True':
+        antialias_method = True
+    else:
+        antialias_method = False
+        
+    t512 = (v2.Resize((512, 512), interpolation=interpolation_method, antialias=antialias_method))
+    t384 = (v2.Resize((384, 384), interpolation=interpolation_method, antialias=antialias_method))
+    t256 = (v2.Resize((256, 256), interpolation=interpolation_method, antialias=antialias_method))
+    t128 = (v2.Resize((128, 128), interpolation=interpolation_method, antialias=antialias_method))
+    return t512, t384, t256, t128, interpolation_method, interpolation_method_affine, antialias_method, interpolation_method_grid
+    
 
 def absoluteFilePaths(directory: str, include_subfolders=False):
     if include_subfolders:
