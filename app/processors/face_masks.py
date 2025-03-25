@@ -64,7 +64,9 @@ class FaceMasks:
             self.models_processor.syncvec.cpu()
         self.models_processor.models['Occluder'].run_with_iobinding(io_binding)
 
-    def apply_dfl_xseg(self, img, amount):
+    def apply_dfl_xseg(self, img, amount, mouth, parameters):
+        amount2 = -parameters["DFLXSeg2SizeSlider"]
+        
         img = img.type(torch.float32)
         img = torch.div(img, 255)
         img = torch.unsqueeze(img, 0).contiguous()
@@ -78,6 +80,9 @@ class FaceMasks:
         outpred = 1.0 - outpred
         outpred = torch.unsqueeze(outpred, 0).type(torch.float32)
 
+        if amount2 != amount:
+            outpred2 = outpred.clone()
+
         if amount > 0:
             kernel = torch.ones((1,1,3,3), dtype=torch.float32, device=self.models_processor.device)
 
@@ -85,7 +90,7 @@ class FaceMasks:
                 outpred = torch.nn.functional.conv2d(outpred, kernel, padding=(1, 1))
                 outpred = torch.clamp(outpred, 0, 1)
 
-            outpred = torch.squeeze(outpred)
+            #outpred = torch.squeeze(outpred)
 
         if amount < 0:
             outpred = torch.neg(outpred)
@@ -96,9 +101,35 @@ class FaceMasks:
                 outpred = torch.nn.functional.conv2d(outpred, kernel, padding=(1, 1))
                 outpred = torch.clamp(outpred, 0, 1)
 
-            outpred = torch.squeeze(outpred)
+            #outpred = torch.squeeze(outpred)
             outpred = torch.neg(outpred)
             outpred = torch.add(outpred, 1)
+            
+        if amount2 != amount:
+            if amount2 > 0:
+                kernel2 = torch.ones((1,1,3,3), dtype=torch.float32, device=self.models_processor.device)
+
+                for _ in range(int(amount2)):
+                    outpred2 = torch.nn.functional.conv2d(outpred2, kernel2, padding=(1, 1))
+                    outpred2 = torch.clamp(outpred2, 0, 1)
+
+                #outpred2 = torch.squeeze(outpred2)
+
+            if amount2 < 0:
+                outpred2 = torch.neg(outpred2)
+                outpred2 = torch.add(outpred2, 1)
+                kernel2 = torch.ones((1,1,3,3), dtype=torch.float32, device=self.models_processor.device)
+
+                for _ in range(int(-amount2)):
+                    outpred2 = torch.nn.functional.conv2d(outpred2, kernel2, padding=(1, 1))
+                    outpred2 = torch.clamp(outpred2, 0, 1)
+
+                #outpred2 = torch.squeeze(outpred2)
+                outpred2 = torch.neg(outpred2)
+                outpred2 = torch.add(outpred2, 1)
+            
+            #print("outpred, outpred2, mouth: ", outpred.shape, outpred2.shape, mouth.shape)
+            outpred[mouth > 0.9] = outpred2[mouth > 0.9]
 
         outpred = torch.reshape(outpred, (1, 256, 256))
         return outpred
@@ -120,7 +151,6 @@ class FaceMasks:
     def apply_face_parser(self, img, parameters):
         FaceAmount = -parameters["BackgroundParserSlider"]
         FaceAmountTexture = -parameters["BackgroundParserTextureSlider"]
-        FaceParserTextureSlider = parameters["FaceParserTextureSlider"]
 
         # Normalize and Reshape
         img = torch.div(img, 255)
@@ -162,6 +192,12 @@ class FaceMasks:
             14: parameters['NeckParserTextureSlider'],
         }
         bg_attributes_texture = [0, 14, 15, 16, 17, 18]
+
+        mouth_attributes = {
+            11: parameters['XsegMouthParserSlider'],
+            12: parameters['XsegUpperLipParserSlider'],
+            13: parameters['XsegLowerLipParserSlider']
+        }
         
         # 3x3 Kernel for Dilation
         kernel = torch.ones((1, 1, 3, 3), dtype=torch.float32, device=self.models_processor.device)
@@ -181,6 +217,13 @@ class FaceMasks:
 
         # Face Mask for every Attribute
 
+        # 5. Mund-Maske für jedes Attribut separat erstellen und kombinieren
+        combined_mouth_mask = torch.zeros((1, 512, 512), dtype=torch.float32, device=self.models_processor.device)
+        if parameters["XSegMouthEnableToggle"]:
+            for attr, dilation in mouth_attributes.items():
+                if dilation > 0:
+                    mouth_mask = create_mask([attr], dilation)
+                    combined_mouth_mask = torch.clamp(combined_mouth_mask + mouth_mask, 0, 1)
 
         out_parse = torch.zeros((1, 512, 512), dtype=torch.float32, device=self.models_processor.device)
         if parameters["FaceParserEnableToggle"]:
@@ -226,7 +269,7 @@ class FaceMasks:
         out_parse = 1 - torch.clamp(out_parse + bg_parse, 0, 1)
         face_mask = 1 - torch.clamp(out_parse_texture + bg_parse_texture, 0, 1)
         
-        return out_parse, face_mask
+        return out_parse, face_mask, combined_mouth_mask
 
     '''
     def apply_face_parser(self, img, parameters):

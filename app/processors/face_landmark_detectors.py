@@ -6,6 +6,7 @@ import torch
 import cv2
 import numpy as np
 from torchvision.transforms import v2
+import threading
 
 if TYPE_CHECKING:
     from app.processors.models_processor import ModelsProcessor
@@ -15,7 +16,8 @@ from app.processors.utils import faceutil
 class FaceLandmarkDetectors:
     def __init__(self, models_processor: 'ModelsProcessor'):
         self.models_processor = models_processor
-
+        self.lock = threading.Lock()  # Lock für Thread-Sicherheit
+        
     def run_detect_landmark(self, img, bbox, det_kpss, detect_mode='203', score=0.5, from_points=False):
         kpss_5 = []
         kpss = []
@@ -76,8 +78,9 @@ class FaceLandmarkDetectors:
             return kpss_5, kpss, scores
 
         elif detect_mode=='203':
-            if not self.models_processor.models['FaceLandmark203']:
-                self.models_processor.models['FaceLandmark203'] = self.models_processor.load_model('FaceLandmark203')
+            with self.lock:  # Kritischen Bereich sichern    
+                if not self.models_processor.models['FaceLandmark203']:
+                    self.models_processor.models['FaceLandmark203'] = self.models_processor.load_model('FaceLandmark203')
 
             kpss_5, kpss, scores = self.detect_face_landmark_203(img, bbox=bbox, det_kpss=det_kpss, from_points=from_points)
 

@@ -39,7 +39,8 @@ class FrameWorker(threading.Thread):
         self.compare_images = []
         self.is_view_face_compare: bool = False
         self.is_view_face_mask: bool = False
-
+        self.lock = threading.Lock()
+        
     def run(self):
         try:
             # Update parameters from markers (if exists) without concurrent access from other threads
@@ -745,6 +746,34 @@ class FrameWorker(threading.Thread):
         
         swap = torch.clamp(swap, 0.0, 255.0)
         
+        swap_original = swap.clone()   
+        
+        if parameters["FaceRestorerEnableToggle"]:
+            swap_autorestore = self.models_processor.apply_facerestorer(swap, parameters['FaceRestorerDetTypeSelection'], parameters['FaceRestorerTypeSelection'], parameters["FaceRestorerBlendSlider"], parameters['FaceFidelityWeightDecimalSlider'], control['DetectorScoreSlider'])
+                                    
+        # Restorer2
+        if parameters["FaceRestorerEnable2Toggle"]:
+            swap2 = self.models_processor.apply_facerestorer(swap, parameters['FaceRestorerDetType2Selection'], parameters['FaceRestorerType2Selection'], parameters["FaceRestorerBlend2Slider"], parameters['FaceFidelityWeight2DecimalSlider'], control['DetectorScoreSlider'])
+            alpha_restorer2 = float(parameters["FaceRestorerBlend2Slider"])/100.0
+            swap_autorestore = torch.add(torch.mul(swap2, alpha_restorer2), torch.mul(swap, 1 - alpha_restorer2))                            
+
+        if parameters["FaceRestorerAutoEnableToggle"] and parameters["FaceRestorerEnableToggle"]:
+
+            #original_face_512_test = v2.functional.pad(original_face_512, (0,0,img.shape[2]-512, img.shape[1]-512))
+            #original_face_512_test = v2.functional.affine(original_face_512_test, tform.inverse.rotation*57.2958, (tform.inverse.translation[0], tform.inverse.translation[1]), tform.inverse.scale, 0, interpolation=interpolation_method_affine, center = (0,0) )
+            #original_face_512_test = original_face_512_test[0:3, top:bottom, left:right]
+            #swap = swap.permute(1, 2, 0)
+
+            #vorsicht: original face wenn nicht 512px!!!
+            original_face_512_autorestore = original_face_512.clone()
+            swap_autorestore = swap_autorestore
+            swap_original_autorestore = swap_original
+            swap_mask_autorestore = t512_mask(swap_mask).clone()
+            alpha_restorer = float(parameters["FaceRestorerBlendSlider"])/100.0
+            adjust_sharpness = float(parameters["FaceRestorerAutoAdjustSlider"])
+            scale_factor = round(tform.scale, 2)
+            #alpha_auto, blur_value = self.face_restorer_auto(original_face_512_autorestore, original_face_512_test, swap_autorestore, swap_original_autorestore, alpha_restorer, adjust_sharpness, scale_factor, swap_mask_autorestore)
+            alpha_auto, blur_value = self.face_restorer_auto(original_face_512_autorestore, swap_autorestore, swap_original_autorestore, alpha_restorer, adjust_sharpness, scale_factor, swap_mask_autorestore)
         
         
         # Expression Restorer
@@ -774,12 +803,12 @@ class FrameWorker(threading.Thread):
             gauss = transforms.GaussianBlur(parameters['OccluderXSegBlurSlider']*2+1, (parameters['OccluderXSegBlurSlider']+1)*0.2)
             swap_mask = gauss(swap_mask)
 
-
-        if parameters["FaceParserEnableToggle"] or ((parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]):
+        #mouth, mouth_original = 0
+        if parameters["FaceParserEnableToggle"] or parameters["XSegMouthEnableToggle"] or ((parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]):
                                                 
             #cv2.imwrite('swap.png', cv2.cvtColor(swap.permute(1, 2, 0).cpu().numpy(), cv2.COLOR_RGB2BGR))
-            mask, texture_mask = self.models_processor.apply_face_parser(swap, parameters)
-            mask_original, texture_mask_original = self.models_processor.apply_face_parser(original_face_512, parameters)
+            mask, texture_mask, mouth = self.models_processor.apply_face_parser(swap, parameters)
+            mask_original, texture_mask_original, mouth_original = self.models_processor.apply_face_parser(original_face_512, parameters)
                                                                                                                                                                      
             if parameters["FaceParserEnableToggle"]:
                 mask = torch.minimum(mask, mask_original)
@@ -797,7 +826,15 @@ class FrameWorker(threading.Thread):
                 adjusted_mask = torch.clamp(adjusted_mask, 0, 1)            
              
         if parameters["DFLXSegEnableToggle"]:
-            img_mask = self.models_processor.apply_dfl_xseg(original_face_256, -parameters["DFLXSegSizeSlider"])
+        
+            if parameters["XSegMouthEnableToggle"]:
+                mouth = t256_mask(mouth)
+                mouth_original = t256_mask(mouth_original)
+                mouth = torch.max(mouth, mouth_original)
+            else:
+                mouth = 0
+            
+            img_mask = self.models_processor.apply_dfl_xseg(original_face_256, -parameters["DFLXSegSizeSlider"], mouth, parameters)
             img_mask = t128_mask(img_mask)
             swap_mask = torch.mul(swap_mask, 1 - img_mask)
             gauss = transforms.GaussianBlur(parameters['OccluderXSegBlurSlider']*2+1, (parameters['OccluderXSegBlurSlider']+1)*0.2)
@@ -860,8 +897,59 @@ class FrameWorker(threading.Thread):
             # Gaussian Blur anwenden
             gaussian_blur = transforms.GaussianBlur(kernel_size=kernel_size, sigma=sigma)
             swap = gaussian_blur(swap)
-        
 
+        '''
+        if (parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]:
+
+            adjusted_mask = v2.functional.pad(adjusted_mask, (0,0,img.shape[2]-512, img.shape[1]-512))
+            adjusted_mask = v2.functional.affine(adjusted_mask, tform.inverse.rotation*57.2958, (tform.inverse.translation[0], tform.inverse.translation[1]), tform.inverse.scale, 0, interpolation=v2.InterpolationMode.BILINEAR, center = (0,0) )
+            adjusted_mask = adjusted_mask[0:1, top:bottom, left:right]
+
+        original_face_crop = img[0:3, top:bottom, left:right].float()
+
+        swap = torch.add(torch.mul(swap, swap_mask), torch.mul(original_face_crop, 1 - swap_mask))                            
+        #swap_original = torch.add(torch.mul(swap_original, swap_mask), torch.mul(original_face_crop, 1 - swap_mask))                            
+
+        original_face_512 = original_face_crop.clone()
+        swap = torch.add(torch.mul(swap, swap_mask), torch.mul(original_face_512, 1 - swap_mask))                            
+        '''
+
+        swap_backup = swap.clone()
+
+  
+        if parameters["TransferTextureEnableToggle"]:
+        
+            TransferTextureKernelSizeSlider = 5
+            TransferTextureWeightDecimalSlider = 0.0
+            TransferTextureLambdSlider = 3
+            TransferTexturePhiDecimalSlider = 3.0
+            TransferTextureGammaDecimalSlider = 0.1
+            #gradient_texture = self.gradient_magnitude(original_face_512, parameters['TransferTextureKernelSizeSlider'], parameters['TransferTextureWeightDecimalSlider'], parameters['TransferTextureSigmaDecimalSlider'], parameters['TransferTextureLambdSlider'], parameters['TransferTextureGammaDecimalSlider'], parameters['TransferTexturePhiDecimalSlider'], parameters['TransferTextureThetaSlider'])
+            gradient_texture = self.gradient_magnitude(original_face_512, TransferTextureKernelSizeSlider, TransferTextureWeightDecimalSlider, parameters['TransferTextureSigmaDecimalSlider'], TransferTextureLambdSlider, TransferTextureGammaDecimalSlider, TransferTexturePhiDecimalSlider, parameters['TransferTextureThetaSlider'])
+            #gradient_texture = (gradient_texture - gradient_texture.mean()) * (parameters['TransferTextureBlendAmountSlider']/50)
+            gradient_texture = gradient_texture * (parameters['TransferTextureBlendAmountSlider']/50)
+
+            #swap = (1 - parameters['TransferTextureAlphaSlider']/100) * swap + parameters['TransferTextureAlphaSlider']/100 * (swap + gradient_texture)
+            swap = swap + gradient_texture
+            swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, 100)
+            swap_backup = faceutil.histogram_matching_DFL_test(original_face_512, swap_backup, 100)
+            if parameters["ExcludeMaskEnableToggle"]:                                                 
+                swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
+                if parameters["DifferencingEnableToggle"]:
+                    swap_backup = swap
+                    swap_backup = swap_backup.clamp(0, 255)
+            swap = swap.clamp(0, 255)
+
+        # Face Diffing
+        if parameters["DifferencingEnableToggle"]:
+            mask = self.models_processor.apply_fake_diff(swap, original_face_512, parameters['DifferencingLowerLimitThreshSlider']/100, parameters['DifferencingLowerLimitValueSlider']/100)
+            gauss = transforms.GaussianBlur(parameters['DifferencingBlendAmountSlider']*2+1, (parameters['DifferencingBlendAmountSlider']+1)*0.2)
+            mask = gauss(mask.type(torch.float32))
+            swap = swap * mask + original_face_512*(1-mask)
+            if parameters["ExcludeMaskEnableToggle"]:
+                swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
+            swap = swap.clamp(0, 255)
+                                
 
         if parameters["AutoColorEnableToggle"]:
             # Histogram color matching original face on swapped face
@@ -900,42 +988,27 @@ class FrameWorker(threading.Thread):
             swap = self.swap_edit_face_core(swap, kps, parameters, control)
             #original_face_512 = self.swap_edit_face_core(original_face_512, kps, parameters, control)
 
-        swap_original = swap.clone()
-
+  
+        swap_backup = swap.clone()   
 
         if parameters["FaceRestorerEnableToggle"]:
             swap = self.models_processor.apply_facerestorer(swap, parameters['FaceRestorerDetTypeSelection'], parameters['FaceRestorerTypeSelection'], parameters["FaceRestorerBlendSlider"], parameters['FaceFidelityWeightDecimalSlider'], control['DetectorScoreSlider'])
- 
+
+
 
         if parameters["FaceRestorerAutoEnableToggle"] and parameters["FaceRestorerEnableToggle"]:
-
-            original_face_512_test = v2.functional.pad(original_face_512, (0,0,img.shape[2]-512, img.shape[1]-512))
-            original_face_512_test = v2.functional.affine(original_face_512_test, tform.inverse.rotation*57.2958, (tform.inverse.translation[0], tform.inverse.translation[1]), tform.inverse.scale, 0, interpolation=interpolation_method_affine, center = (0,0) )
-            original_face_512_test = original_face_512_test[0:3, top:bottom, left:right]
-            #swap = swap.permute(1, 2, 0)
-
-            #vorsicht: original face wenn nicht 512px!!!
-            original_face_512_autorestore = original_face_512.clone()
-            swap_autorestore = swap.clone()
-            swap_original_autorestore = swap_original.clone()
-            swap_mask_autorestore = t512_mask(swap_mask).clone()
-            alpha_restorer = float(parameters["FaceRestorerBlendSlider"])/100.0
-            adjust_sharpness = float(parameters["FaceRestorerAutoAdjustSlider"])
-            scale_factor = round(tform.scale, 2)
-            alpha_auto, blur_value = self.face_restorer_auto(original_face_512_autorestore, original_face_512_test, swap_autorestore, swap_original_autorestore, alpha_restorer, adjust_sharpness, scale_factor, swap_mask_autorestore)
             if blur_value != 0:
                 kernel_size = 2 * blur_value + 1
                 sigma = blur_value * 0.2
-                swap = transforms.GaussianBlur(kernel_size, sigma)(swap_original) 
+                swap = transforms.GaussianBlur(kernel_size, sigma)(swap_backup) 
             elif alpha_auto != 0:
-                swap = swap * alpha_auto + swap_original * (1 - alpha_auto)
+                swap = swap * alpha_auto + swap_backup * (1 - alpha_auto)
             else:
-                swap = swap_original 
+                swap = swap_backup 
             print("alpha_auto, blur: ", alpha_auto, " , ", blur_value)
         elif parameters["FaceRestorerEnableToggle"]:
             alpha_restorer = float(parameters["FaceRestorerBlendSlider"])/100.0
-            swap = torch.add(torch.mul(swap, alpha_restorer), torch.mul(swap_original, 1 - alpha_restorer))                             
-
+            swap = torch.add(torch.mul(swap, alpha_restorer), torch.mul(swap_backup, 1 - alpha_restorer))                             
 
         # Restorer2
         if parameters["FaceRestorerEnable2Toggle"]:
@@ -997,55 +1070,7 @@ class FrameWorker(threading.Thread):
   
         #swap = swap.permute(2,0,1)        
 
-        if (parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]:
-
-            adjusted_mask = v2.functional.pad(adjusted_mask, (0,0,img.shape[2]-512, img.shape[1]-512))
-            adjusted_mask = v2.functional.affine(adjusted_mask, tform.inverse.rotation*57.2958, (tform.inverse.translation[0], tform.inverse.translation[1]), tform.inverse.scale, 0, interpolation=v2.InterpolationMode.BILINEAR, center = (0,0) )
-            adjusted_mask = adjusted_mask[0:1, top:bottom, left:right]
-
-        original_face_crop = img[0:3, top:bottom, left:right].float()
-
-        swap = torch.add(torch.mul(swap, swap_mask), torch.mul(original_face_crop, 1 - swap_mask))                            
-        #swap_original = torch.add(torch.mul(swap_original, swap_mask), torch.mul(original_face_crop, 1 - swap_mask))                            
-
-        original_face_512 = original_face_crop.clone()
-        swap = torch.add(torch.mul(swap, swap_mask), torch.mul(original_face_512, 1 - swap_mask))                            
-
-        swap_backup = swap.clone()
-        
-        if parameters["TransferTextureEnableToggle"]:
-        
-            TransferTextureKernelSizeSlider = 5
-            TransferTextureWeightDecimalSlider = 0.0
-            TransferTextureLambdSlider = 3
-            TransferTexturePhiDecimalSlider = 3.0
-            TransferTextureGammaDecimalSlider = 0.1
-            #gradient_texture = self.gradient_magnitude(original_face_512, parameters['TransferTextureKernelSizeSlider'], parameters['TransferTextureWeightDecimalSlider'], parameters['TransferTextureSigmaDecimalSlider'], parameters['TransferTextureLambdSlider'], parameters['TransferTextureGammaDecimalSlider'], parameters['TransferTexturePhiDecimalSlider'], parameters['TransferTextureThetaSlider'])
-            gradient_texture = self.gradient_magnitude(original_face_512, TransferTextureKernelSizeSlider, TransferTextureWeightDecimalSlider, parameters['TransferTextureSigmaDecimalSlider'], TransferTextureLambdSlider, TransferTextureGammaDecimalSlider, TransferTexturePhiDecimalSlider, parameters['TransferTextureThetaSlider'])
-            #gradient_texture = (gradient_texture - gradient_texture.mean()) * (parameters['TransferTextureBlendAmountSlider']/50)
-            gradient_texture = gradient_texture * (parameters['TransferTextureBlendAmountSlider']/50)
-
-            #swap = (1 - parameters['TransferTextureAlphaSlider']/100) * swap + parameters['TransferTextureAlphaSlider']/100 * (swap + gradient_texture)
-            swap = swap + gradient_texture
-            swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, 100)
-            swap_backup = faceutil.histogram_matching_DFL_test(original_face_512, swap_backup, 100)
-            if parameters["ExcludeMaskEnableToggle"]:                                                 
-                swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
-                if parameters["DifferencingEnableToggle"]:
-                    swap_backup = swap
-                    swap_backup = swap_backup.clamp(0, 255)
-            swap = swap.clamp(0, 255)
-
-        # Face Diffing
-        if parameters["DifferencingEnableToggle"]:
-            mask = self.models_processor.apply_fake_diff(swap, original_face_512, parameters['DifferencingLowerLimitThreshSlider']/100, parameters['DifferencingLowerLimitValueSlider']/100)
-            gauss = transforms.GaussianBlur(parameters['DifferencingBlendAmountSlider']*2+1, (parameters['DifferencingBlendAmountSlider']+1)*0.2)
-            mask = gauss(mask.type(torch.float32))
-            swap = swap * mask + original_face_512*(1-mask)
-            if parameters["ExcludeMaskEnableToggle"]:
-                swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
-            swap = swap.clamp(0, 255)
-
+  
         if parameters["BlockShiftEnableToggle"]:
             swap2 = self.apply_block_shift_gpu(swap, parameters["BlockShiftAmountSlider"], parameters["BlockShiftMaxAmountSlider"])        
             block_shift_blend = (parameters["BlockShiftBlendAmountSlider"]/100.0)# * tform.scale
@@ -1250,6 +1275,7 @@ class FrameWorker(threading.Thread):
         driving_face_256 = t256(driving_face_512)
 
         # Making motion templates: driving_template_dct
+        #print("kps: ", kps)
         c_d_eyes_lst = faceutil.calc_eye_close_ratio(driving_lmk_crop[None]) #c_d_eyes_lst
         c_d_lip_lst = faceutil.calc_lip_close_ratio(driving_lmk_crop[None]) #c_d_lip_lst
         x_d_i_info = self.models_processor.lp_motion_extractor(driving_face_256, 'Human-Face')
@@ -1425,20 +1451,22 @@ class FrameWorker(threading.Thread):
         #out = torch.mul(out, self.models_processor.lp_mask_crop)  # Applica la maschera
 
         if flag_pasteback and flag_do_crop and flag_stitching:
-            t = trans.SimilarityTransform()
-            t.params[0:2] = M_c2o
-            dsize = (target.shape[1], target.shape[2])
-            # pad image by image size
-            out = faceutil.pad_image_by_size(out, dsize)
-            out = v2.functional.affine(out, t.rotation*57.2958, translate=(t.translation[0], t.translation[1]), scale=t.scale, shear=(0.0, 0.0), interpolation=interpolation_method_affine, center=(0, 0))
-            out = v2.functional.crop(out, 0,0, dsize[0], dsize[1]) # cols, rows
+            with self.lock:
+                t = trans.SimilarityTransform()
+                t.params[0:2] = M_c2o
+                dsize = (target.shape[1], target.shape[2])
+                # pad image by image size
+                out = faceutil.pad_image_by_size(out, dsize)
+                out = v2.functional.affine(out, t.rotation*57.2958, translate=(t.translation[0], t.translation[1]), scale=t.scale, shear=(0.0, 0.0), interpolation=interpolation_method_affine, center=(0, 0))
+                out = v2.functional.crop(out, 0,0, dsize[0], dsize[1]) # cols, rows
 
-        out = torch.clamp(torch.mul(out, 255.0), 0, 255).type(torch.float32)
-        #cv2.imshow("output", cv2.cvtColor(out.permute(1,2,0).cpu().numpy(), cv2.COLOR_RGB2BGR))
+        img = out                
+        img = torch.mul(img, 255.0)
+        img = torch.clamp(img, 0, 255).type(torch.float32)        #cv2.imshow("output", cv2.cvtColor(out.permute(1,2,0).cpu().numpy(), cv2.COLOR_RGB2BGR))
         #cv2.waitKey(0)
         #cv2.destroyAllWindows()
 
-        return out
+        return img
 
     def swap_edit_face_core(self, img, kps, parameters, control, **kwargs): # img = RGB
         # Grab 512 face from image and create 256 and 128 copys
@@ -1618,10 +1646,10 @@ class FrameWorker(threading.Thread):
 
         return torch.stack(filtered_images).mean(0)  # Mittelwert über Richtungen, bleibt aber pro Kanal                                 
     
-    def face_restorer_auto(self, original_face_512, original_face_512_test, swap, swap_original, alpha, adjust_sharpness, scale_factor, swap_mask):
+    def face_restorer_auto(self, original_face_512, swap, swap_original, alpha, adjust_sharpness, scale_factor, swap_mask):
         original_face_512_autorestore = original_face_512.clone()
         original_face_512_autorestore = original_face_512_autorestore.float()
-        original_face_512_test = original_face_512_test.float()
+        #original_face_512_test = original_face_512_test.float()
         #print(original_face_512_autorestore.shape, swap_mask.shape)
         #original_face_512_autorestore = original_face_512_autorestore * swap_mask
         swap_autorestore = swap.clone()
@@ -1631,7 +1659,7 @@ class FrameWorker(threading.Thread):
          #print(original_face_512_autorestore)
         # Berechne die Zielschärfe
         sharpness_original = self.tenengrad_sharpness(original_face_512_autorestore) + adjust_sharpness
-        sharpness_original_test = self.tenengrad_sharpness(original_face_512_test) + adjust_sharpness
+        #sharpness_original_test = self.tenengrad_sharpness(original_face_512_test) + adjust_sharpness
         
         max_iterations = 7
         alpha_min, alpha_max = 0.0, 1.0

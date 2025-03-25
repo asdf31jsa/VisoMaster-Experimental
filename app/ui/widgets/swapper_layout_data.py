@@ -361,8 +361,8 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
         'DFLXSegSizeSlider': {
             'level': 2,
             'label': 'Size',
-            'min_value': '-100',
-            'max_value': '100',
+            'min_value': '-20',
+            'max_value': '20',
             'default': '0',
             'step': 1,
             'parentToggle': 'DFLXSegEnableToggle',
@@ -377,6 +377,67 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'default': '0',
             'step': 1,
             'parentToggle': 'OccluderEnableToggle | DFLXSegEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Blend value for Occluder and XSeg.'
+        },
+        'XSegMouthEnableToggle': {
+            'level': 1,
+            'label': 'Xseg Mouth',
+            'default': False,
+            'help': 'Allow objects occluding the face to show up in the swapped image.'
+        },
+        'DFLXSeg2SizeSlider': {
+            'level': 2,
+            'label': 'Size2',
+            'min_value': '-20',
+            'max_value': '20',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'XSegMouthEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Grows or shrinks the occluded region.'
+        },       
+        'XsegUpperLipParserSlider': {
+            'level': 2,
+            'label': 'Upper Lip',
+            'min_value': '0',
+            'max_value': '20',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'XSegMouthEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Grows or shrinks the occluded region.'
+        },
+        'XsegMouthParserSlider': {
+            'level': 2,
+            'label': 'Mouth',
+            'min_value': '0',
+            'max_value': '20',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'XSegMouthEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Grows or shrinks the occluded region.'
+        },
+        'XsegLowerLipParserSlider': {
+            'level': 2,
+            'label': 'Lower Lip',
+            'min_value': '0',
+            'max_value': '20',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'XSegMouthEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Grows or shrinks the occluded region.'
+        },
+        'XSeg2BlurSlider': {
+            'level': 1,
+            'label': 'XSeg2 Blur',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '0',
+            'step': 1,
+            'parentToggle': 'XSegMouthEnableToggle',
             'requiredToggleValue': True,
             'help': 'Blend value for Occluder and XSeg.'
         },
