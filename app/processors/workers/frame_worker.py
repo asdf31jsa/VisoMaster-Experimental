@@ -924,8 +924,9 @@ class FrameWorker(threading.Thread):
             TransferTextureLambdSlider = 3
             TransferTexturePhiDecimalSlider = 3.0
             TransferTextureGammaDecimalSlider = 0.1
+            TransferTextureThetaSlider = 16
             #gradient_texture = self.gradient_magnitude(original_face_512, parameters['TransferTextureKernelSizeSlider'], parameters['TransferTextureWeightDecimalSlider'], parameters['TransferTextureSigmaDecimalSlider'], parameters['TransferTextureLambdSlider'], parameters['TransferTextureGammaDecimalSlider'], parameters['TransferTexturePhiDecimalSlider'], parameters['TransferTextureThetaSlider'])
-            gradient_texture = self.gradient_magnitude(original_face_512, TransferTextureKernelSizeSlider, TransferTextureWeightDecimalSlider, parameters['TransferTextureSigmaDecimalSlider'], TransferTextureLambdSlider, TransferTextureGammaDecimalSlider, TransferTexturePhiDecimalSlider, parameters['TransferTextureThetaSlider'])
+            gradient_texture = self.gradient_magnitude(original_face_512, TransferTextureKernelSizeSlider, TransferTextureWeightDecimalSlider, parameters['TransferTextureSigmaDecimalSlider'], TransferTextureLambdSlider, TransferTextureGammaDecimalSlider, TransferTexturePhiDecimalSlider, TransferTextureThetaSlider)
             #gradient_texture = (gradient_texture - gradient_texture.mean()) * (parameters['TransferTextureBlendAmountSlider']/50)
             gradient_texture = gradient_texture * (parameters['TransferTextureBlendAmountSlider']/50)
 
