@@ -1011,9 +1011,9 @@ class FrameWorker(threading.Thread):
             TransferTextureThetaSlider = parameters['TransferTextureThetaSlider']
             TransferTextureHochSlider = 1 #parameters['TransferTextureHochSlider']
 
-            
+            swap_mask_texture = swap_mask
             if parameters['TransferTextureWeightSlider'] > 0:
-                swap_mask_texture = t512_mask(swap_mask).clone()
+                swap_mask_texture = t512_mask(swap_mask)
                 swap_mask_texture = (swap_mask_texture > 0).float()                
             #gradient_texture = self.gradient_magnitude(original_face_512, parameters['TransferTextureKernelSizeSlider'], parameters['TransferTextureWeightDecimalSlider'], parameters['TransferTextureSigmaDecimalSlider'], parameters['TransferTextureLambdSlider'], parameters['TransferTextureGammaDecimalSlider'], parameters['TransferTexturePhiDecimalSlider'], parameters['TransferTextureThetaSlider'])
             gradient_texture = self.gradient_magnitude(original_face_512, swap_mask_texture, TransferTextureKernelSizeSlider, TransferTextureWeightSlider, parameters['TransferTextureSigmaDecimalSlider'], TransferTextureLambdSlider, TransferTextureGammaDecimalSlider, TransferTexturePhiDecimalSlider, TransferTextureThetaSlider, TransferTextureHochSlider)
