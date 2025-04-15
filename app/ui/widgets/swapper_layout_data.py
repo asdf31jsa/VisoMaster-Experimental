@@ -28,12 +28,6 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'requiredSelectionValue': 'Inswapper128',
             'help': 'Autoselect Swapper Resolution based on original Face Size (only for Inswapper).'
         },
-        'AnalyzeOriginalEnableToggle': {
-            'level': 2,
-            'label': 'Analyze Original Face',
-            'default': False,
-            'help': 'Autoselect Swapper Resolution based on original Face Size (only for Inswapper).'
-        },
         'DFMModelSelection': {
             'level': 2,
             'label': 'DFM Model',
@@ -108,23 +102,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'requiredToggleValue': True,
             'help': 'Determines the factor of likeness between the source and assigned faces.'
         },
-    },
-    'Interpolation Type': {        
-        'InterpolationTypeSelection': {
-            'level': 1,
-            'label': 'Interpolation Type',
-            'options': ['NEAREST/BILINEAR', 'NEAREST_EXACT/NEAREST', 'BILINEAR', 'BICUBIC/NEAREST', 'BICUBIC/BILINEAR'],
-            'default': 'BILINEAR',
-            'help': 'Experimental! for basic functionality testing. changes the interpolation type for necessary pipeline functions (resize/rotation/etc. of image). caution, influences Autorestore calculation'
-        },         
-        'AntialiasTypeSelection': {
-            'level': 1,
-            'label': 'Antialias',
-            'options': ['False', 'True'],
-            'default': 'False',
-            'help': 'Experimental! most of the time no visual effect, in rare cases minor effect'
-        }, 
-    },       
+    },    
     'Swap <--> Original Interference': {
         'DifferencingEnableToggle': {
             'level': 1,
@@ -134,32 +112,65 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
         },
         'DifferencingLowerLimitThreshSlider': {
             'level': 2,
-            'label': 'Differenc Lower Limit',
+            'label': 'Difference Lower Limit',
             'min_value': '0',
             'max_value': '100',
-            'default': '10',
+            'default': '14',
             'step': 1,
             'parentToggle': 'DifferencingEnableToggle',
             'requiredToggleValue': True,
-            'help': 'Lower Difference Treshold, Pixels with difference below this will get differenced with original Face (like the Amount Slider in vanilla VisoMaster'
-        },        
+            'help': 'Definese pixels with difference under lower limit. Pixels with difference below this will get differenced between "lower amount" and "middle amount" (0= 100% original face, 100 = 100% swap face)'
+        },   
+        'DifferencingUpperLimitThreshSlider': {
+            'level': 2,
+            'label': 'Difference Upper Limit',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '32',
+            'step': 1,
+            'parentToggle': 'DifferencingEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Definese pixels with difference between lower limit and upper limit. Pixels with difference between these thresholds will get differenced between "middle amount" and "upper amount" (0 = 100% original face, 100 = 100% swap face)'
+        },             
         'DifferencingLowerLimitValueSlider': {
             'level': 2,
             'label': 'Lower Amount',
             'min_value': '0',
             'max_value': '100',
-            'default': '50',
+            'default': '34',
             'step': 1,
             'parentToggle': 'DifferencingEnableToggle',
             'requiredToggleValue': True,
-            'help': 'Blend Amount for Pixels below Treshold (0= 100% original Face, 100= 100% swapped Face)'
-        },                  
+            'help': 'Starting value for pixel differences bellow lower treshold (0 = 100% original face, 100 = 100% swap face)'
+        },                                      
+        'DifferencingMiddleLimitValueSlider': {
+            'level': 2,
+            'label': 'Middle Amount',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '62',
+            'step': 1,
+            'parentToggle': 'DifferencingEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'End Value for pixel differences bellow lower treshold, starting value for pixel differences above lower treshold (0 = 100% original face, 100 = 100% swap face)'
+        },       
+        'DifferencingUpperLimitValueSlider': {
+            'level': 2,
+            'label': 'Upper Amount',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '88',
+            'step': 1,
+            'parentToggle': 'DifferencingEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'End Value for pixel differences below upper treshold, starting value for pixel differences above upper treshold (0 = 100% original face, 100 = 100% swap face)'
+        },         
         'DifferencingBlendAmountSlider': {
             'level': 2,
             'label': 'Blend Amount',
             'min_value': '0',
             'max_value': '100',
-            'default': '5',
+            'default': '8',
             'step': 1,
             'parentToggle': 'DifferencingEnableToggle',
             'requiredToggleValue': True,
@@ -176,36 +187,59 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Strength Multiplier',
             'min_value': '0',
             'max_value': '100',
-            'default': '20',
+            'default': '30',
             'step': 1,
             'parentToggle': 'TransferTextureEnableToggle',
             'requiredToggleValue': True,
-            'help': 'Decrease/Increase calculated Texture Differences. 10-20 good values for standard transfer. '
+            'help': 'Decrease/Increase calculated Texture Differences. 50 is standard calculated Difference'
         },               
         'TransferTextureSigmaDecimalSlider': {
             'level': 2,
             'label': 'Sigma',
-            'min_value': '0.50',
-            'max_value': '2.00',
-            'default': '1.00',
+            'min_value': '0.10',
+            'max_value': '1.50',
+            'default': '0.10',
             'decimals': 2,
             'step': 0.01,
             'parentToggle': 'TransferTextureEnableToggle',
             'requiredToggleValue': True,
-            'help': 'over 1 can allow higher transfer while preserve likeness but can have some flaws.'
+            'help': '0.1 always works. experiment with higher values for higher texture effect (higher theta values may be needed)'
         },        
+        'TransferTextureThetaSlider': {
+            'level': 2,
+            'label': 'Theta',
+            'min_value': '1',
+            'max_value': '32',
+            'default': '1',
+            'decimals': 2,
+            'step': 1,
+            'parentToggle': 'TransferTextureEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'When swap looks grainy (can happen mostly with "weight"=0) increase. also can help on higher sigma/Strength Multiplier values'
+        },    
+        'TransferTextureWeightSlider': {
+            'level': 2,
+            'label': 'Weight 0.0',
+            'min_value': '0',
+            'max_value': '1',
+            'default': '1',
+            'step': 1,
+            'parentToggle': 'TransferTextureEnableToggle',
+            'requiredToggleValue': True,
+            'help': '1 calculates with original image colors. experiment. When swap looks grainy (can happen mostly with "weight"=0, increase theta.'
+        },                        
         'ExcludeMaskEnableToggle': {
             'level': 1,
-            'label': 'Exclude-Features Mask',
+            'label': 'Exclude-Features Texture Mask',
             'default': False,
-            'help': 'Exclude Faceparts from Texture Transfere and Face Differencing and uses the original Swap there. needed for more aggressive texture transfer values'
-        },
+            'help': 'Exclude Faceparts from Texture Transfere and Face Differencing and uses the original Swap there. needed for more aggressive texture transfer values. slows swapping because 2xfaceparser is used'
+        },        
         'EyebrowParserTextureSlider': {
             'level': 2,
             'label': 'Eyebrows',
             'min_value': '0',
             'max_value': '10',
-            'default': '0',
+            'default': '1',
             'step': 1,
             'parentToggle': 'ExcludeMaskEnableToggle',
             'requiredToggleValue': True,
@@ -216,7 +250,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Eyes',
             'min_value': '0',
             'max_value': '10',
-            'default': '0',
+            'default': '1',
             'step': 1,
             'parentToggle': 'ExcludeMaskEnableToggle',
             'requiredToggleValue': True,
@@ -227,7 +261,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Nose',
             'min_value': '0',
             'max_value': '10',
-            'default': '0',
+            'default': '1',
             'step': 1,
             'parentToggle': 'ExcludeMaskEnableToggle',
             'requiredToggleValue': True,
@@ -238,7 +272,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Mouth',
             'min_value': '0',
             'max_value': '10',
-            'default': '0',
+            'default': '1',
             'step': 1,
             'parentToggle': 'ExcludeMaskEnableToggle',
             'requiredToggleValue': True,
@@ -260,7 +294,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Background',
             'min_value': '-50',
             'max_value': '50',
-            'default': '0',
+            'default': '-4',
             'step': 1,
             'parentToggle': 'ExcludeMaskEnableToggle',
             'requiredToggleValue': True,
@@ -271,7 +305,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Excluded Texture Blend',
             'min_value': '0',
             'max_value': '100',
-            'default': '0',
+            'default': '10',
             'step': 1,
             'parentToggle': 'ExcludeMaskEnableToggle',
             'requiredToggleValue': True,
@@ -282,11 +316,22 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Texture Mask Blur',
             'min_value': '0',
             'max_value': '100',
-            'default': '5',
+            'default': '10',
             'step': 1,
             'parentToggle': 'ExcludeMaskEnableToggle',
             'requiredToggleValue': True,
             'help': 'Mask Blur on excluded Area Edges'
+        },         
+        'FaceParserBlurBGTextureSlider': {
+            'level': 2,
+            'label': 'Texture BG Mask Blur',
+            'min_value': '0',
+            'max_value': '100',
+            'default': '20',
+            'step': 1,
+            'parentToggle': 'ExcludeMaskEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Mask Blur on excluded Background Area Edges'
         },    
     },    
     'Face Mask':{
@@ -402,7 +447,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Upper Lip',
             'min_value': '0',
             'max_value': '20',
-            'default': '0',
+            'default': '2',
             'step': 1,
             'parentToggle': 'XSegMouthEnableToggle',
             'requiredToggleValue': True,
@@ -413,7 +458,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Mouth',
             'min_value': '0',
             'max_value': '20',
-            'default': '0',
+            'default': '2',
             'step': 1,
             'parentToggle': 'XSegMouthEnableToggle',
             'requiredToggleValue': True,
@@ -424,7 +469,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Lower Lip',
             'min_value': '0',
             'max_value': '20',
-            'default': '0',
+            'default': '10',
             'step': 1,
             'parentToggle': 'XSegMouthEnableToggle',
             'requiredToggleValue': True,
@@ -435,7 +480,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'XSeg2 Blur',
             'min_value': '0',
             'max_value': '100',
-            'default': '0',
+            'default': '4',
             'step': 1,
             'parentToggle': 'XSegMouthEnableToggle',
             'requiredToggleValue': True,
@@ -1102,7 +1147,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Compression',
             'min_value': '1',
             'max_value': '100',
-            'default': '50',
+            'default': '70',
             'step': 1,
             'parentToggle': 'JPEGCompressionEnableToggle',
             'requiredToggleValue': True,
@@ -1118,8 +1163,8 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'level': 2,
             'label': 'Block Size',
             'min_value': '1',
-            'max_value': '5',
-            'default': '3',
+            'max_value': '8',
+            'default': '6',
             'step': 1,
             'parentToggle': 'BlockShiftEnableToggle',
             'requiredToggleValue': True,
@@ -1129,8 +1174,8 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'level': 2,
             'label': 'Shift Maximum',
             'min_value': '1',
-            'max_value': '10',
-            'default': '4',
+            'max_value': '20',
+            'default': '1',
             'step': 1,
             'parentToggle': 'BlockShiftEnableToggle',
             'requiredToggleValue': True,
@@ -1148,24 +1193,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'help': 'Blend Amount'
         },
     },
-    'Blend Adjustments':{
-        'FinalBlendAdjPreEnableToggle': {
-            'level': 1,
-            'label': 'Final Blend Pre',
-            'default': False,
-            'help': 'Blend at the end of pipeline.'
-        },
-        'FinalBlendPreAmountSlider': {
-            'level': 2,
-            'label': 'Final Blend Pre Amount',
-            'min_value': '1',
-            'max_value': '50',
-            'default': '1',
-            'step': 1,
-            'parentToggle': 'FinalBlendAdjPreEnableToggle',
-            'requiredToggleValue': True,
-            'help': 'Adjust the final blend value.'
-        },        
+    'Blend Adjustments':{    
         'FinalBlendAdjEnableToggle': {
             'level': 1,
             'label': 'Final Blend',
@@ -1360,5 +1388,63 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'requiredToggleValue': True,
             'help': 'Shifts the mouth Right detection point up and down.'
         },
-    },    
+    }, 
+    'Interpolation Type (very experimental, better don´t touch)': {        
+        'get_cropped_face_kpsTypeSelection': {
+            'level': 1,
+            'label': 'get cropped face kps',
+            'options': ['NEAREST', 'BILINEAR'],
+            'default': 'BILINEAR',
+            'help': 'Experimental! for basic functionality testing. changes the interpolation type for necessary pipeline functions (resize/rotation/etc. of image). caution, influences Autorestore calculation'
+        },        
+        'original_face_128_384TypeSelection': {
+            'level': 1,
+            'label': 'original_128_384',
+            'options': ['NEAREST', 'BILINEAR'],
+            'default': 'BILINEAR',
+            'help': 'Experimental! for basic functionality testing. changes the interpolation type for necessary pipeline functions (resize/rotation/etc. of image). caution, influences Autorestore calculation'
+        },        
+        'original_face_512TypeSelection': {
+            'level': 1,
+            'label': 'original_512',
+            'options': ['NEAREST', 'BILINEAR'],
+            'default': 'BILINEAR',
+            'help': 'Experimental! for basic functionality testing. changes the interpolation type for necessary pipeline functions (resize/rotation/etc. of image). caution, influences Autorestore calculation'
+        },         
+        'UntransformTypeSelection': {
+            'level': 1,
+            'label': 'Untransform',
+            'options': ['NEAREST', 'BILINEAR'],
+            'default': 'BILINEAR',
+            'help': 'Experimental! for basic functionality testing. changes the interpolation type for necessary pipeline functions (resize/rotation/etc. of image). caution, influences Autorestore calculation'
+        },         
+        'expression_faceeditor_t256TypeSelection': {
+            'level': 1,
+            'label': 'Expression_faceeditor_t256',
+            'options': ['NEAREST', 'BILINEAR'],
+            'default': 'BILINEAR',
+            'help': 'Experimental! for basic functionality testing. changes the interpolation type for necessary pipeline functions (resize/rotation/etc. of image). caution, influences Autorestore calculation'
+        },         
+        'expression_faceeditor_backTypeSelection': {
+            'level': 1,
+            'label': 'Expression_faceeditor_back',
+            'options': ['NEAREST', 'BILINEAR'],
+            'default': 'BILINEAR',
+            'help': 'Experimental! for basic functionality testing. changes the interpolation type for necessary pipeline functions (resize/rotation/etc. of image). caution, influences Autorestore calculation'
+        },         
+        'block_shiftTypeSelection': {
+            'level': 1,
+            'label': 'block shift',
+            'options': ['NEAREST', 'BILINEAR'],
+            'default': 'NEAREST',
+            'help': 'Experimental! for basic functionality testing. changes the interpolation type for necessary pipeline functions (resize/rotation/etc. of image). caution, influences Autorestore calculation'
+        },         
+        'AntialiasTypeSelection': {
+            'level': 1,
+            'label': 'Antialias',
+            'options': ['False', 'True'],
+            'default': 'False',
+            'help': 'Experimental! most of the time no visual effect, in rare cases minor effect'
+        }, 
+    },       
 }

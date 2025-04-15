@@ -52,12 +52,10 @@ class FaceEditors:
 
                 feed_dict = {}
                 feed_dict["img"] = I_s
-                stream = torch.cuda.Stream()
-                with torch.cuda.stream(stream):  # Jeder Thread bekommt seinen eigenen Stream
-                    preds_dict = motion_extractor_model.predict_async(feed_dict, stream)
-                #preds_dict = motion_extractor_model.predict_async(feed_dict, torch.cuda.current_stream())
+                #stream = torch.cuda.Stream()
+                #preds_dict = motion_extractor_model.predict_async(feed_dict, stream)
+                preds_dict = motion_extractor_model.predict_async(feed_dict, torch.cuda.current_stream())
                 #preds_dict = motion_extractor_model.predict(feed_dict)
-                stream.synchronize()  # Sicherstellen, dass alles abgeschlossen ist
 
                 kp_info = {
                     'pitch': preds_dict["pitch"],
@@ -148,11 +146,8 @@ class FaceEditors:
 
                 feed_dict = {}
                 feed_dict["img"] = I_s
-                stream = torch.cuda.Stream()
-                with torch.cuda.stream(stream):  # Jeder Thread bekommt seinen eigenen Stream
-                    preds_dict = appearance_feature_extractor_model.predict_async(feed_dict, stream)
+                preds_dict = appearance_feature_extractor_model.predict_async(feed_dict, torch.cuda.current_stream())
                 #preds_dict = appearance_feature_extractor_model.predict(feed_dict)
-                stream.synchronize()  # Sicherstellen, dass alles abgeschlossen ist
 
                 output = preds_dict["output"]
 
@@ -206,11 +201,8 @@ class FaceEditors:
 
                 feed_dict = {}
                 feed_dict["input"] = feat_eye
-                stream = torch.cuda.Stream()
-                with torch.cuda.stream(stream):  # Jeder Thread bekommt seinen eigenen Stream
-                    preds_dict = stitching_eye_model.predict_async(feed_dict, stream)
+                preds_dict = stitching_eye_model.predict_async(feed_dict, torch.cuda.current_stream())
                 #preds_dict = stitching_eye_model.predict(feed_dict)
-                stream.synchronize()  # Sicherstellen, dass alles abgeschlossen ist
 
                 delta = preds_dict["output"]
 
@@ -260,11 +252,8 @@ class FaceEditors:
 
                 feed_dict = {}
                 feed_dict["input"] = feat_lip
-                stream = torch.cuda.Stream()
-                with torch.cuda.stream(stream):  # Jeder Thread bekommt seinen eigenen Stream
-                    preds_dict = stitching_lip_model.predict_async(feed_dict, stream)
+                preds_dict = stitching_lip_model.predict_async(feed_dict, torch.cuda.current_stream())
                 #preds_dict = stitching_lip_model.predict(feed_dict)
-                stream.synchronize()  # Sicherstellen, dass alles abgeschlossen ist
 
                 delta = preds_dict["output"]
 
@@ -314,11 +303,8 @@ class FaceEditors:
 
                 feed_dict = {}
                 feed_dict["input"] = feat_stiching
-                stream = torch.cuda.Stream()
-                with torch.cuda.stream(stream):  # Jeder Thread bekommt seinen eigenen Stream
-                    preds_dict = stitching_model.predict_async(feed_dict, stream)
+                preds_dict = stitching_model.predict_async(feed_dict, torch.cuda.current_stream())
                 #preds_dict = stitching_model.predict(feed_dict)
-                stream.synchronize()  # Sicherstellen, dass alles abgeschlossen ist
 
                 delta = preds_dict["output"]
 
@@ -426,11 +412,9 @@ class FaceEditors:
                 feed_dict["kp_source"] = kp_source
                 feed_dict["kp_driving"] = kp_driving
                 stream = torch.cuda.Stream()
-                with torch.cuda.stream(stream):  # Jeder Thread bekommt seinen eigenen Stream
-                    preds_dict = warping_spade_model.predict_async(feed_dict, stream)
+                preds_dict = warping_spade_model.predict_async(feed_dict, stream)
                 #preds_dict = warping_spade_model.predict_async(feed_dict, torch.cuda.current_stream())
                 #preds_dict = warping_spade_model.predict(feed_dict)
-                stream.synchronize()  # Sicherstellen, dass alles abgeschlossen ist
 
                 out = preds_dict["out"]
 

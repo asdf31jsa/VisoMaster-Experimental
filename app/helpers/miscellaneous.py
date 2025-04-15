@@ -36,6 +36,8 @@ class ParametersDict(UserDict):
 
 def get_scaling_transforms(parameters):
     #print(parameters)
+
+    '''
     if parameters["InterpolationTypeSelection"] == 'NEAREST/BILINEAR':
         interpolation_method = v2.InterpolationMode.NEAREST
         interpolation_method_affine = v2.InterpolationMode.BILINEAR        
@@ -56,17 +58,68 @@ def get_scaling_transforms(parameters):
         interpolation_method = v2.InterpolationMode.BILINEAR
         interpolation_method_affine = v2.InterpolationMode.BILINEAR        
         interpolation_method_grid = 'bilinear'
-
+    '''
+    if parameters["get_cropped_face_kpsTypeSelection"] == 'NEAREST':
+        interpolation_get_cropped_face_kps = v2.InterpolationMode.NEAREST
+    elif parameters["get_cropped_face_kpsTypeSelection"] == 'BILINEAR':
+        interpolation_get_cropped_face_kps = v2.InterpolationMode.BILINEAR
+    elif parameters["get_cropped_face_kpsTypeSelection"] == 'BICUBIC':
+        interpolation_get_cropped_face_kps = v2.InterpolationMode.BICUBIC
+    
+    if parameters["original_face_128_384TypeSelection"] == 'NEAREST':
+        interpolation_original_face_128_384 = v2.InterpolationMode.NEAREST
+    elif parameters["original_face_128_384TypeSelection"] == 'BILINEAR':
+        interpolation_original_face_128_384 = v2.InterpolationMode.BILINEAR
+    elif parameters["original_face_128_384TypeSelection"] == 'BICUBIC':
+        interpolation_original_face_128_384 = v2.InterpolationMode.BICUBIC
+    
+    if parameters["original_face_512TypeSelection"] == 'NEAREST':
+        interpolation_original_face_512 = v2.InterpolationMode.NEAREST
+    elif parameters["original_face_512TypeSelection"] == 'BILINEAR':
+        interpolation_original_face_512 = v2.InterpolationMode.BILINEAR
+    elif parameters["original_face_512TypeSelection"] == 'BICUBIC':
+        interpolation_original_face_512 = v2.InterpolationMode.BICUBIC
+    
+    if parameters["UntransformTypeSelection"] == 'NEAREST':
+        interpolation_Untransform = v2.InterpolationMode.NEAREST
+    elif parameters["UntransformTypeSelection"] == 'BILINEAR':
+        interpolation_Untransform = v2.InterpolationMode.BILINEAR
+    elif parameters["UntransformTypeSelection"] == 'BICUBIC':
+        interpolation_Untransform = v2.InterpolationMode.BICUBIC
+     
+    if parameters["expression_faceeditor_t256TypeSelection"] == 'NEAREST':
+        interpolation_expression_faceeditor_t256 = v2.InterpolationMode.NEAREST
+    elif parameters["expression_faceeditor_t256TypeSelection"] == 'BILINEAR':
+        interpolation_expression_faceeditor_t256 = v2.InterpolationMode.BILINEAR
+    elif parameters["expression_faceeditor_t256TypeSelection"] == 'BICUBIC':
+        interpolation_expression_faceeditor_t256 = v2.InterpolationMode.BICUBIC
+    
+    if parameters["expression_faceeditor_backTypeSelection"] == 'NEAREST':
+        interpolation_expression_faceeditor_back = v2.InterpolationMode.NEAREST
+    elif parameters["expression_faceeditor_backTypeSelection"] == 'BILINEAR':
+        interpolation_expression_faceeditor_back = v2.InterpolationMode.BILINEAR
+    elif parameters["expression_faceeditor_backTypeSelection"] == 'BICUBIC':
+        interpolation_expression_faceeditor_back = v2.InterpolationMode.BICUBIC
+    
+    if parameters["block_shiftTypeSelection"] == 'NEAREST':
+        interpolation_block_shift = 'nearest' 
+    elif parameters["block_shiftTypeSelection"] == 'BILINEAR':
+        interpolation_block_shift = 'bilinear'
+    elif parameters["block_shiftTypeSelection"] == 'BICUBIC':
+        interpolation_block_shift = 'bicubic' 
+        
     if parameters["AntialiasTypeSelection"] == 'True':
         antialias_method = True
     else:
         antialias_method = False
+
+    t256_face = (v2.Resize((256, 256), interpolation=interpolation_expression_faceeditor_t256, antialias=antialias_method))
         
-    t512 = (v2.Resize((512, 512), interpolation=interpolation_method, antialias=antialias_method))
-    t384 = (v2.Resize((384, 384), interpolation=interpolation_method, antialias=antialias_method))
-    t256 = (v2.Resize((256, 256), interpolation=interpolation_method, antialias=antialias_method))
-    t128 = (v2.Resize((128, 128), interpolation=interpolation_method, antialias=antialias_method))
-    return t512, t384, t256, t128, interpolation_method, interpolation_method_affine, antialias_method, interpolation_method_grid
+    t512 = (v2.Resize((512, 512), interpolation=interpolation_original_face_512, antialias=antialias_method))
+    t384 = (v2.Resize((384, 384), interpolation=interpolation_original_face_128_384, antialias=antialias_method))
+    t256 = (v2.Resize((256, 256), interpolation=interpolation_original_face_128_384, antialias=antialias_method))
+    t128 = (v2.Resize((128, 128), interpolation=interpolation_original_face_128_384, antialias=antialias_method))
+    return t512, t384, t256, t128, interpolation_get_cropped_face_kps, interpolation_original_face_128_384, interpolation_original_face_512, interpolation_Untransform, t256_face, interpolation_expression_faceeditor_back, interpolation_block_shift
     
 
 def absoluteFilePaths(directory: str, include_subfolders=False):
