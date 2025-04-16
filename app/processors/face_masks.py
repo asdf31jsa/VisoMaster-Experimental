@@ -248,20 +248,22 @@ class FaceMasks:
 
         out_parse_texture = torch.zeros((1, 512, 512), dtype=torch.float32, device=outpred.device)
         bg_parse_texture = torch.zeros((1, 512, 512), dtype=torch.float32, device=outpred.device)
-        if (parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]:
+        use_texture_mask = any(v != 0 for v in face_attributes_texture.values())
+        if (parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"] and use_texture_mask:
             out_parse_texture = group_and_combine(face_attributes_texture)
 
             if parameters['FaceParserBlurTextureSlider'] > 0:
                 k = parameters['FaceParserBlurTextureSlider'] * 2 + 1
                 sigma = (parameters['FaceParserBlurTextureSlider'] + 1) * 0.2
                 out_parse_texture = transforms.GaussianBlur(k, sigma)(out_parse_texture)
-            if mode == "original":
-                bg_parse_texture = create_mask(bg_attributes_texture, FaceAmountTexture)
-                
-                if parameters['FaceParserBlurBGTextureSlider'] > 0:
-                    k = parameters['FaceParserBlurBGTextureSlider'] * 2 + 1
-                    sigma = (parameters['FaceParserBlurBGTextureSlider'] + 1) * 0.2
-                    bg_parse_texture = transforms.GaussianBlur(k, sigma)(bg_parse_texture)
+        use_bg_texture_mask = FaceAmountTexture != 0
+        if (parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"] and mode == "original" and use_bg_texture_mask:
+            bg_parse_texture = create_mask(bg_attributes_texture, FaceAmountTexture)
+            
+            if parameters['FaceParserBlurBGTextureSlider'] > 0:
+                k = parameters['FaceParserBlurBGTextureSlider'] * 2 + 1
+                sigma = (parameters['FaceParserBlurBGTextureSlider'] + 1) * 0.2
+                bg_parse_texture = transforms.GaussianBlur(k, sigma)(bg_parse_texture)
 
         out_parse = 1 - torch.clamp(out_parse + bg_parse, 0, 1)
         face_mask = torch.clamp(out_parse_texture, 0, 1)
