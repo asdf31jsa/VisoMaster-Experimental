@@ -857,8 +857,8 @@ class FrameWorker(threading.Thread):
         if parameters["FaceParserEnableToggle"] or (parameters["XSegMouthEnableToggle"] and (parameters["DFLXSegSizeSlider"] != parameters["DFLXSeg2SizeSlider"])) or ((parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]):
                                                 
             #cv2.imwrite('swap.png', cv2.cvtColor(swap.permute(1, 2, 0).cpu().numpy(), cv2.COLOR_RGB2BGR))
-            mask, texture_mask, bg_mask, mouth = self.models_processor.apply_face_parser(swap, parameters)
-            mask_original, texture_mask_original, bg_mask_original, mouth_original = self.models_processor.apply_face_parser(original_face_512, parameters)
+            mask, texture_mask, bg_mask, mouth = self.models_processor.apply_face_parser(swap, parameters, mode="swap")
+            mask_original, texture_mask_original, bg_mask_original, mouth_original = self.models_processor.apply_face_parser(original_face_512, parameters, mode="original")
                                                                                                                                                                      
             if parameters["FaceParserEnableToggle"]:
                 mask = torch.minimum(mask, mask_original)

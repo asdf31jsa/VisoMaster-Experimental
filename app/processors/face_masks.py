@@ -155,7 +155,7 @@ class FaceMasks:
             self.models_processor.syncvec.cpu()
         self.models_processor.models['XSeg'].run_with_iobinding(io_binding)
         
-    def apply_face_parser(self, img, parameters):
+    def apply_face_parser(self, img, parameters, mode):
         FaceAmount = -parameters["BackgroundParserSlider"]
         FaceAmountTexture = -parameters["BackgroundParserTextureSlider"]
 
@@ -255,13 +255,13 @@ class FaceMasks:
                 k = parameters['FaceParserBlurTextureSlider'] * 2 + 1
                 sigma = (parameters['FaceParserBlurTextureSlider'] + 1) * 0.2
                 out_parse_texture = transforms.GaussianBlur(k, sigma)(out_parse_texture)
-
-            bg_parse_texture = create_mask(bg_attributes_texture, FaceAmountTexture)
-            
-            if parameters['FaceParserBlurBGTextureSlider'] > 0:
-                k = parameters['FaceParserBlurBGTextureSlider'] * 2 + 1
-                sigma = (parameters['FaceParserBlurBGTextureSlider'] + 1) * 0.2
-                bg_parse_texture = transforms.GaussianBlur(k, sigma)(bg_parse_texture)
+            if mode == "original":
+                bg_parse_texture = create_mask(bg_attributes_texture, FaceAmountTexture)
+                
+                if parameters['FaceParserBlurBGTextureSlider'] > 0:
+                    k = parameters['FaceParserBlurBGTextureSlider'] * 2 + 1
+                    sigma = (parameters['FaceParserBlurBGTextureSlider'] + 1) * 0.2
+                    bg_parse_texture = transforms.GaussianBlur(k, sigma)(bg_parse_texture)
 
         out_parse = 1 - torch.clamp(out_parse + bg_parse, 0, 1)
         face_mask = torch.clamp(out_parse_texture, 0, 1)

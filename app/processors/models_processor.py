@@ -393,8 +393,8 @@ class ModelsProcessor(QtCore.QObject):
     def apply_dfl_xseg(self, img, amount, mouth, parameters):
         return self.face_masks.apply_dfl_xseg(img, amount, mouth, parameters)
     
-    def apply_face_parser(self, img, parameters):
-        return self.face_masks.apply_face_parser(img, parameters)
+    def apply_face_parser(self, img, parameters, mode):
+        return self.face_masks.apply_face_parser(img, parameters, mode)
     
     def apply_face_makeup(self, img, parameters):
         return self.face_editors.apply_face_makeup(img, parameters)
