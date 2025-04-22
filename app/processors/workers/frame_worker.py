@@ -817,6 +817,7 @@ class FrameWorker(threading.Thread):
             swap_autorestore = swap_autorestore
             swap_original_autorestore = swap_original
             swap_mask_autorestore = t512_mask(swap_mask).clone()
+            swap_mask_autorestore = (swap_mask_autorestore > 0.05).float()            
             alpha_restorer = float(parameters["FaceRestorerBlendSlider"])/100.0
             adjust_sharpness = float(parameters["FaceRestorerAutoAdjustSlider"])
             scale_factor = round(tform.scale, 2)
@@ -978,9 +979,11 @@ class FrameWorker(threading.Thread):
             #swap_autorestore = swap_autorestore
             #swap_original_autorestore = swap_original
             swap_mask_autorestore = t512_mask(swap_mask).clone()
-            swap_mask_autorestore = (swap_mask_autorestore > 0).float()
+            swap_mask_autorestore = (swap_mask_autorestore > 0.0)#.float()
 
             swap, alpha_map = self.face_restorer_auto(original_face_512_autorestore, swap_backup, swap, alpha_auto, float(parameters["FaceRestorerAutoAdjustSlider"]), round(tform.scale, 2), swap_mask_autorestore, parameters["FaceRestorerAutoAdjustKernelSlider"], pixelwise=True)
+            
+            swap = torch.where(swap_mask_autorestore, swap, original_face_512)
             average_alpha = alpha_map.mean()
             #print("⌀ Alpha-Wert der alpha_map:", average_alpha.item())
         if parameters["FaceRestorerAutoEnableToggle"] and parameters["FaceRestorerEnableToggle"] and not parameters["FaceRestorerAutoMapEnableToggle"]:
@@ -1012,9 +1015,9 @@ class FrameWorker(threading.Thread):
             TransferTextureHochSlider = 1 #parameters['TransferTextureHochSlider']
 
             swap_mask_texture = swap_mask
-            if parameters['TransferTextureWeightSlider'] > 0:
-                swap_mask_texture = t512_mask(swap_mask)
-                swap_mask_texture = (swap_mask_texture > 0).float()                
+            #if parameters['TransferTextureWeightSlider'] > 0:
+            swap_mask_texture = t512_mask(swap_mask)
+            swap_mask_texture = (swap_mask_texture > 0.0)#.float()                
             #gradient_texture = self.gradient_magnitude(original_face_512, parameters['TransferTextureKernelSizeSlider'], parameters['TransferTextureWeightDecimalSlider'], parameters['TransferTextureSigmaDecimalSlider'], parameters['TransferTextureLambdSlider'], parameters['TransferTextureGammaDecimalSlider'], parameters['TransferTexturePhiDecimalSlider'], parameters['TransferTextureThetaSlider'])
             gradient_texture = self.gradient_magnitude(original_face_512, swap_mask_texture, TransferTextureKernelSizeSlider, TransferTextureWeightSlider, parameters['TransferTextureSigmaDecimalSlider'], TransferTextureLambdSlider, TransferTextureGammaDecimalSlider, TransferTexturePhiDecimalSlider, TransferTextureThetaSlider, TransferTextureHochSlider)
             #if parameters["TransferTextureMean1EnableToggle"]:
@@ -1027,53 +1030,73 @@ class FrameWorker(threading.Thread):
 
             #swap = (1 - parameters['TransferTextureAlphaSlider']/100) * swap + parameters['TransferTextureAlphaSlider']/100 * (swap + gradient_texture)
             swap = swap + gradient_texture
-            if parameters['TransferTextureWeightSlider'] > 0:
-                swap = faceutil.histogram_matching_DFL_Orig(original_face_512, swap, t512_mask(swap_mask), 100)
-                swap_backup = swap_backup * swap_mask_texture
-                swap_backup = faceutil.histogram_matching_DFL_Orig(original_face_512, swap_backup, t512_mask(swap_mask), 100)
-            else:
-                swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, 100)
-                swap_backup = faceutil.histogram_matching_DFL_test(original_face_512, swap_backup, 100)
-
-            #if parameters["ExcludeMaskEnableToggle"]:                                                 
-            #    swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
-                #if parameters["DifferencingEnableToggle"] and parameters["ExcludeMaskDiffEnableToggle"]:
-                #    swap_backup = swap
-                #    swap_backup = swap_backup.clamp(0, 255)
+            #swap = torch.where(swap_mask_texture, swap, original_face_512)
+            
+            #if parameters['TransferTextureWeightSlider'] > 0:
+            swap = faceutil.histogram_matching_DFL_Orig(original_face_512, swap, swap_mask_texture, 100)
+            #swap_backup = swap_backup * swap_mask_texture
+            if parameters["ExcludeMaskEnableToggle"]:
+                swap_backup = faceutil.histogram_matching_DFL_Orig(original_face_512, swap_backup, swap_mask_texture, 100)
+            #else:
+            #    swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, 100)
+            #    swap_backup = faceutil.histogram_matching_DFL_test(original_face_512, swap_backup, 100)
+            
             swap = swap.clamp(0, 255)
             
-        # Face Diffing
-        if parameters["DifferencingEnableToggle"]:
-            mask = self.models_processor.apply_fake_diff(swap, original_face_512, parameters['DifferencingLowerLimitThreshSlider']/100, parameters['DifferencingLowerLimitValueSlider']/100, parameters['DifferencingUpperLimitThreshSlider']/100, parameters['DifferencingUpperLimitValueSlider']/100, parameters['DifferencingMiddleLimitValueSlider']/100)
-            gauss = transforms.GaussianBlur(parameters['DifferencingBlendAmountSlider']*2+1, (parameters['DifferencingBlendAmountSlider']+1)*0.2)
-            mask = gauss(mask.type(torch.float32))
-            swap = swap * mask + original_face_512*(1-mask)
-            if not parameters["TransferTextureEnableToggle"]:
-                swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, 100)
-
-            if parameters["ExcludeMaskEnableToggle"]:
-                if not parameters["TransferTextureEnableToggle"]:               
-                    swap_backup = faceutil.histogram_matching_DFL_test(original_face_512, swap_backup, 100)
-
-            swap = swap.clamp(0, 255)
-        
-        if (parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]:   
-            swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
-            swap = swap.clamp(0, 255)
-
         if parameters["AutoColorEnableToggle"]:
+            swap_mask_autocolor = t512_mask(swap_mask).clone()
+            swap_mask_autocolor = (swap_mask_autocolor > 0)
+
+            swap = torch.where(swap_mask_autocolor, swap, original_face_512)
             # Histogram color matching original face on swapped face
             if parameters['AutoColorTransferTypeSelection'] == 'Test':
                 swap = faceutil.histogram_matching(original_face_512, swap, parameters["AutoColorBlendAmountSlider"])
 
             elif parameters['AutoColorTransferTypeSelection'] == 'Test_Mask':
-                swap = faceutil.histogram_matching_withmask(original_face_512, swap, t512_mask(swap_mask), parameters["AutoColorBlendAmountSlider"])
+                #mask_no_channel = torch.ones((512, 512))
+                swap = faceutil.histogram_matching_withmask(original_face_512, swap, swap_mask_autocolor, parameters["AutoColorBlendAmountSlider"], parameters["SmothStrength1DecimalSlider"], parameters["SmothStrength2DecimalSlider"], parameters["AutoColorSmoothEnableToggle"], parameters["AutoColorSmooth2EnableToggle"])
+                if parameters["ExcludeMaskEnableToggle"]:
+                    swap_backup = faceutil.histogram_matching_withmask(original_face_512, swap_backup, swap_mask_autocolor, parameters["AutoColorBlendAmountSlider"], parameters["SmothStrength1DecimalSlider"], parameters["SmothStrength2DecimalSlider"], parameters["AutoColorSmoothEnableToggle"], parameters["AutoColorSmooth2EnableToggle"])
 
             elif parameters['AutoColorTransferTypeSelection'] == 'DFL_Test':
                 swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, parameters["AutoColorBlendAmountSlider"])
 
             elif parameters['AutoColorTransferTypeSelection'] == 'DFL_Orig':
                 swap = faceutil.histogram_matching_DFL_Orig(original_face_512, swap, t512_mask(swap_mask), parameters["AutoColorBlendAmountSlider"])
+
+        # Face Diffing
+        if parameters["DifferencingEnableToggle"]:
+            swap_mask_diff = swap_mask.clone()
+            swap_mask_diff = t512_mask(swap_mask)
+            swap_mask_diff = (swap_mask_diff > 0)#.float()
+            #swap_diff_mask = swap * swap_mask_diff
+            #original_face_512_diff_mask = original_face_512 * swap_mask_diff
+            swap = torch.where(swap_mask_diff, swap, original_face_512)
+
+            mask = self.models_processor.apply_fake_diff(swap, original_face_512, parameters['DifferencingLowerLimitThreshSlider']/100, parameters['DifferencingLowerLimitValueSlider']/100, parameters['DifferencingUpperLimitThreshSlider']/100, parameters['DifferencingUpperLimitValueSlider']/100, parameters['DifferencingMiddleLimitValueSlider']/100)
+            gauss = transforms.GaussianBlur(parameters['DifferencingBlendAmountSlider']*2+1, (parameters['DifferencingBlendAmountSlider']+1)*0.2)
+            mask = gauss(mask.type(torch.float32))
+            swap = swap * mask + original_face_512*(1-mask)
+            '''
+            if not parameters["TransferTextureEnableToggle"]:
+                #swap = torch.where(swap_diff_mask, swap, original_face_512)
+
+                swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, 100)
+
+                if parameters["ExcludeMaskEnableToggle"]:
+                    #swap_backup = torch.where(swap_diff_mask, swap_backup, original_face_512)
+
+                    swap_backup = faceutil.histogram_matching_DFL_test(original_face_512, swap_backup, 100)
+            '''
+            swap = swap.clamp(0, 255)
+        
+        if (parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]:   
+            swap = torch.add(torch.mul(swap, adjusted_mask), torch.mul(swap_backup, 1 - adjusted_mask))
+            swap = swap.clamp(0, 255)
+        #print("swap.shape: ", swap.shape)
+        #print("original_face_512: ", torch.max(original_face_512), torch.min(original_face_512))
+        #print("swap: ", torch.mean(swap), torch.max(swap), torch.min(swap))
+
 
         # Apply color corrections
         if parameters['ColorEnableToggle']:
@@ -1121,7 +1144,11 @@ class FrameWorker(threading.Thread):
             swap = torch.clamp(swap + noise, 0.0, 255.0)
 
         if parameters["BlockShiftEnableToggle"]:
-            swap2 = self.apply_block_shift_gpu(swap, parameters["BlockShiftAmountSlider"], parameters["BlockShiftMaxAmountSlider"])        
+
+            tform_scale = parameters["BlockShiftAmountSlider"] * tform.scale/2
+            tform_scale = round(tform_scale)
+            tform_scale = min(8, tform_scale)
+            swap2 = self.apply_block_shift_gpu(swap, tform_scale, parameters["BlockShiftMaxAmountSlider"])        
             block_shift_blend = (parameters["BlockShiftBlendAmountSlider"]/100.0)# * tform.scale
             swap = torch.add(torch.mul(swap2, block_shift_blend), torch.mul(swap, 1 - block_shift_blend))                          
 
@@ -1844,6 +1871,7 @@ class FrameWorker(threading.Thread):
         original_face_512_autorestore = original_face_512.clone().float()
         original_face_512 = original_face_512 * swap_mask
         swap_autorestore = swap.clone()
+        #swap = torch.where(swap_mask, swap, original_face_512_autorestore)
         swap = swap * swap_mask
 
         swap_original_autorestore = swap_original.clone()

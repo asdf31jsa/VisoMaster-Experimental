@@ -209,7 +209,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'level': 2,
             'label': 'Theta',
             'min_value': '1',
-            'max_value': '32',
+            'max_value': '16',
             'default': '1',
             'decimals': 2,
             'step': 1,
@@ -219,7 +219,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
         },    
         'TransferTextureWeightSlider': {
             'level': 2,
-            'label': 'Weight 0.0',
+            'label': 'Weight',
             'min_value': '0',
             'max_value': '1',
             'default': '1',
@@ -1001,7 +1001,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'parentToggle': 'AutoColorEnableToggle',
             'requiredToggleValue': True,
             'help': 'Select the AutoColor transfer method type. Hans Method could have some artefacts sometimes.'
-        },
+        }, 
         'AutoColorBlendAmountSlider': {
             'level': 1,
             'label': 'Blend Amount',
