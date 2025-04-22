@@ -1902,120 +1902,6 @@ def jpegBlur(img, q):
 
     return img_blurred
     
-def pca_color_transfer(source_img, target_img, diffslider=100.0):
-    """
-    Transfer color distribution from source_img to target_img using PCA-based approach.
-    Assumes input images are float tensors in range [0, 1], shape (3, H, W)
-    """
-
-    device = source_img.device
-    alpha = diffslider / 100.0
-    
-    # Convert images to float tensors in range [0, 1], shape (C, H, W)
-    source_img = source_img.float().to(device) / 255.0  # (C, H, W)
-    target_img = target_img.float().to(device) / 255.0  # (C, H, W)
-
-    # Flatten spatial dims: (3, H, W) -> (H*W, 3)
-    print("source_img.shape: ", source_img.shape)
-    print("target_img.shape: ", target_img.shape)
-    
-    C, H, W = source_img.shape
-    source_flat = source_img.view(C, -1).permute(1, 0)  # (N, 3)
-    target_flat = target_img.view(C, -1).permute(1, 0)  # (N, 3)
-
-    # Normalize: subtract mean
-    source_mean = source_flat.mean(dim=0, keepdim=True)
-    target_mean = target_flat.mean(dim=0, keepdim=True)
-
-    source_centered = source_flat - source_mean
-    target_centered = target_flat - target_mean
-
-    # Compute covariance matrices
-    source_cov = source_centered.T @ source_centered / (source_centered.shape[0] - 1)
-    target_cov = target_centered.T @ target_centered / (target_centered.shape[0] - 1)
-
-    # SVD: target = U D V^T
-    U_t, S_t, V_t = torch.svd(target_cov)
-    U_s, S_s, V_s = torch.svd(source_cov)
-
-    # Whitening target
-    D_t_inv_sqrt = torch.diag(1.0 / (S_t + 1e-6).sqrt())
-    whitened_target = (target_centered @ U_t) @ D_t_inv_sqrt
-
-    # Coloring using source covariance
-    D_s_sqrt = torch.diag((S_s + 1e-6).sqrt())
-    transformed = (whitened_target @ U_s) @ D_s_sqrt
-
-    # Add source mean
-    result_flat = transformed + source_mean
-
-    # Reshape and blend
-    result_img = result_flat.permute(1, 0).view(C, H, W)
-    final_img = torch.clamp((1 - alpha) * target_img + alpha * result_img, 0.0, 1.0)
-    
-    final_img = torch.clamp(final_img * 255.0, 0.0, 255.0)    
-    print("final_img: ", final_img.shape, torch.mean(final_img), torch.max(final_img), torch.min(final_img))
-
-    return final_img
-def pca_color_transfer_mask(source_img, target_img, mask, diffslider=100.0):
-    """
-    Transfer color distribution from source_img to target_img using PCA-based approach,
-    using only the masked region (mask > 0) for computation.
-    """
-
-    device = source_img.device
-    alpha = diffslider / 100.0
-
-    # Normalize input to [0, 1]
-    source_img = source_img.float().to(device) / 255.0  # (C, H, W)
-    target_img = target_img.float().to(device) / 255.0
-    mask = mask.to(device)  # (1, H, W) or (H, W)
-
-    if mask.dim() == 2:
-        mask = mask.unsqueeze(0)  # make it (1, H, W)
-
-    mask = mask > 0  # binary mask
-
-    C, H, W = source_img.shape
-    source_flat = source_img.view(C, -1)  # (C, N)
-    target_flat = target_img.view(C, -1)  # (C, N)
-    mask_flat = mask.view(-1)  # (N,)
-
-    # Get masked pixel values only (shape: (N_selected, 3))
-    source_pixels = source_flat[:, mask_flat].permute(1, 0)  # (N, 3)
-    target_pixels = target_flat[:, mask_flat].permute(1, 0)  # (N, 3)
-
-    # Centering
-    source_mean = source_pixels.mean(dim=0, keepdim=True)
-    target_mean = target_pixels.mean(dim=0, keepdim=True)
-    source_centered = source_pixels - source_mean
-    target_centered = target_pixels - target_mean
-
-    # Covariance matrices
-    source_cov = source_centered.T @ source_centered / (source_centered.shape[0] - 1)
-    target_cov = target_centered.T @ target_centered / (target_centered.shape[0] - 1)
-
-    # PCA via SVD
-    U_t, S_t, _ = torch.svd(target_cov)
-    U_s, S_s, _ = torch.svd(source_cov)
-
-    # Whitening and coloring
-    D_t_inv_sqrt = torch.diag(1.0 / (S_t + 1e-6).sqrt())
-    whitened = (target_centered @ U_t) @ D_t_inv_sqrt
-    D_s_sqrt = torch.diag((S_s + 1e-6).sqrt())
-    transformed = (whitened @ U_s) @ D_s_sqrt + source_mean
-
-    # Create result image
-    result_flat = target_flat.clone().permute(1, 0)  # (N, 3)
-    result_flat[mask_flat] = transformed  # replace only masked values
-    result_img = result_flat.permute(1, 0).view(C, H, W)
-
-    # Blend and scale
-    final_img = (1 - alpha) * target_img + alpha * result_img
-    final_img = torch.clamp(final_img * 255.0, 0.0, 255.0)
-
-    return final_img
-    
 def histogram_matching(source_image, target_image, diffslider):
     # Determine the device (CPU or GPU)
     device = source_image.device
@@ -2104,7 +1990,7 @@ def histogram_matching(source_image, target_image, diffslider):
 
     return final_image_tensor
 
-def histogram_matching_withmask(source_image, target_image, mask, diffslider, smooth_strength1, smooth_strength2, smoothing, smoothing2):
+def histogram_matching_withmask(source_image, target_image, mask, diffslider):
     # Determine the device (CPU or GPU)
     device = source_image.device
     

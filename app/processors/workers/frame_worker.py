@@ -1054,9 +1054,9 @@ class FrameWorker(threading.Thread):
 
             elif parameters['AutoColorTransferTypeSelection'] == 'Test_Mask':
                 #mask_no_channel = torch.ones((512, 512))
-                swap = faceutil.histogram_matching_withmask(original_face_512, swap, swap_mask_autocolor, parameters["AutoColorBlendAmountSlider"], parameters["SmothStrength1DecimalSlider"], parameters["SmothStrength2DecimalSlider"], parameters["AutoColorSmoothEnableToggle"], parameters["AutoColorSmooth2EnableToggle"])
+                swap = faceutil.histogram_matching_withmask(original_face_512, swap, swap_mask_autocolor, parameters["AutoColorBlendAmountSlider"])
                 if parameters["ExcludeMaskEnableToggle"]:
-                    swap_backup = faceutil.histogram_matching_withmask(original_face_512, swap_backup, swap_mask_autocolor, parameters["AutoColorBlendAmountSlider"], parameters["SmothStrength1DecimalSlider"], parameters["SmothStrength2DecimalSlider"], parameters["AutoColorSmoothEnableToggle"], parameters["AutoColorSmooth2EnableToggle"])
+                    swap_backup = faceutil.histogram_matching_withmask(original_face_512, swap_backup, swap_mask_autocolor, parameters["AutoColorBlendAmountSlider"])
 
             elif parameters['AutoColorTransferTypeSelection'] == 'DFL_Test':
                 swap = faceutil.histogram_matching_DFL_test(original_face_512, swap, parameters["AutoColorBlendAmountSlider"])
