@@ -1,3 +1,13 @@
+many changes and extras for the great VisoMaster Tool.
+
+new version, overall much better in my opinion, but different to control. hope tooltips helps, i will try to add better explanations. 
+use new "mask show"-Selection for "View Face Mask" to see masks for transfer_texture/differencing.
+
+(old version moved to "version1" branch)
+
+start with a new Workspace!
+
+
 
 # VisoMaster 
 ### VisoMaster is a powerful yet easy-to-use tool for face swapping and editing in images and videos. It utilizes AI to produce natural-looking results with minimal effort, making it ideal for both casual users and professionals.  

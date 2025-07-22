@@ -7,7 +7,6 @@ from pathlib import Path
 import os
 import gc
 from functools import partial
-from datetime import datetime
 
 import cv2
 import numpy
@@ -19,6 +18,7 @@ from PySide6.QtGui import QPixmap
 from app.processors.workers.frame_worker import FrameWorker
 from app.ui.widgets.actions import graphics_view_actions
 from app.ui.widgets.actions import common_actions as common_widget_actions
+from app.ui.widgets.actions import save_load_actions
 
 from app.ui.widgets.actions import video_control_actions
 from app.ui.widgets.actions import layout_actions
@@ -173,8 +173,9 @@ class VideoProcessor(QObject):
 
             if self.media_capture and self.media_capture.isOpened():
                 print("Starting video processing.")
-                if self.recording:
-                    layout_actions.disable_all_parameters_and_control_widget(self.main_window)
+                #if self.recording:
+
+                    #layout_actions.disable_all_parameters_and_control_widget(self.main_window)
 
                 self.start_time = time.perf_counter()
                 self.processing = True
@@ -378,7 +379,11 @@ class VideoProcessor(QObject):
                 print(f'Average FPS: {avg_fps}\n')
 
                 if self.recording:
-                    layout_actions.enable_all_parameters_and_control_widget(self.main_window)
+                    #layout_actions.enable_all_parameters_and_control_widget(self.main_window)
+                    if self.main_window.control['AutoSaveWorkspaceToggle']:
+                        json_file_path = misc_helpers.get_output_file_path(self.media_path, self.main_window.control['OutputMediaFolder'])      
+                        json_file_path += ".json"
+                        save_load_actions.save_current_workspace(self.main_window, json_file_path)
 
             self.recording = False #Set recording as False to make sure the next process_video() call doesnt not record the video, unless the user press the record button
 
@@ -400,9 +405,8 @@ class VideoProcessor(QObject):
     def create_ffmpeg_subprocess(self):
         # Use Dimensions of the last processed frame as it could be different from the original frame due to restorers and frame enhancers 
         frame_height, frame_width, _ = self.current_frame.shape
-        date_and_time = datetime.now().strftime(r'%Y_%m_%d_%H_%M_%S')
-        self.temp_file = f'temp_output_{date_and_time}.mp4'
-        #output_filename = f'{temp_path.stem}_{date_and_time}.mp4'
+
+        self.temp_file = r'temp_output.mp4'
         if Path(self.temp_file).is_file():
             os.remove(self.temp_file)
 

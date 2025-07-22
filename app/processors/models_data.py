@@ -260,6 +260,13 @@ models_list = [
 
     },
     {
+        "model_name": "GFPGAN1024",
+        "local_path": f"{models_dir}/gfpgan-1024.onnx",
+        "hash": "ee8dd6415e388b3a410689d5d9395a2bf50b5973b588421ebfa57bc266f19e24",
+        "url": "https://github.com/Glat0s/GFPGAN-1024-onnx/releases/download/v0.0.1/gfpgan-1024.onnx"
+
+    },
+    {
         "model_name": "GPENBFR256",
         "local_path": f"{models_dir}/GPEN-BFR-256.onnx",
         "hash": "aa5bd3ab238640a378c59e4a560f7a7150627944cf2129e6311ae4720e833271",
@@ -412,6 +419,69 @@ models_list = [
         "hash": "5b805bba7b5660ab7070b5a381dcf75e5b3e04199f1e9387232a77a00095102e",
         "url": f"{assets_repo}/v0.1.0/faceparser_resnet34.onnx"
 
+    },    
+    {
+        "model_name": "relu2_2",
+        "local_path": f"{models_dir}/vgg_relu2_2.onnx",
+        "hash": "7744BAC5517174D5A41ED96FFBC46DAAB20733748B87569AE37B77F0F5ECDAD8",
+        "url": f"{assets_repo}/v0.1.0_lp/vgg_relu2_2.onnx"
+
+    },    
+    {
+        "model_name": "relu3_1",
+        "local_path": f"{models_dir}/vgg_relu3_1.onnx",
+        "hash": "9DD9A01AE7F162CE097CD35CB02AD83BD9A4874A08044CF9F1735F7E54AD464E",
+        "url": f"{assets_repo}/v0.1.0_lp/vgg_relu3_1.onnx"
+
+    },    
+    {
+        "model_name": "relu3_3",
+        "local_path": f"{models_dir}/vgg_relu3_3.onnx",
+        "hash": "85E6D96ACBFC5CF035C5D1CCF77E20AA217B733C15A6C63609229B8C014BBC7E",
+        "url": f"{assets_repo}/v0.1.0_lp/vgg_relu3_3.onnx"
+
+    },    
+    {
+        "model_name": "relu4_1",
+        "local_path": f"{models_dir}/vgg_relu4_1.onnx",
+        "hash": "DE9704E932A2F9EBD76A8E581118B2EFDC63211B6D399408DFBCA5F4DA8F0B8D",
+        "url": f"{assets_repo}/v0.1.0_lp/vgg_relu4_1.onnx"
+
+    },    
+    {
+        "model_name": "combo_relu3_3_relu2_2",
+        "local_path": f"{models_dir}/vgg_combo_relu3_3_relu2_2.onnx",
+        "hash": "ADD9159A5CCC7B9BE5E4FDAF3A0E6A4F5A02ECAAB37B8002CEC71F493E34D762",
+        "url": f"{assets_repo}/v0.1.0_lp/vgg_combo_relu3_3_relu2_2.onnx"
+
+    },    
+    {
+        "model_name": "combo_relu3_3_relu3_1",
+        "local_path": f"{models_dir}/vgg_combo_relu3_3_relu3_1.onnx",
+        "hash": "1068EE41E3C67DCFBBECCBC93E539EB06F89BBA08618951BB33E9BE2C1FBC986",
+        "url": f"{assets_repo}/v0.1.0_lp/vgg_combo_relu3_3_relu3_1.onnx"
+
+    },   
+    {
+        "model_name": "efficientnetb0_layer2",
+        "local_path": f"{models_dir}/efficientnetb0_layer2.onnx",
+        "hash": "0CCE2CDD196FEAF229D404C53EFBAB55E5DEAAC3456160010C4C05F78141B3BC",
+        "url": f"{assets_repo}/v0.1.0_lp/efficientnetb0_layer2.onnx"
+
+    },   
+    {
+        "model_name": "efficientnetb0_layer3",
+        "local_path": f"{models_dir}/efficientnetb0_layer3.onnx",
+        "hash": "DA1673AE38A092187B7005E4A529CFEB6E604D80279927DD65E7996564F4F751",
+        "url": f"{assets_repo}/v0.1.0_lp/efficientnetb0_layer3.onnx"
+
+    },   
+    {
+        "model_name": "efficientnetb0_layer4",
+        "local_path": f"{models_dir}/efficientnetb0_layer4.onnx",
+        "hash": "2CB72B8A089A9B4B7CC343A5C6CCE9CE1DCC23DC5CA2665CF37F20119E4F128F",
+        "url": f"{assets_repo}/v0.1.0_lp/efficientnetb0_layer4.onnx"
+
     },
     {
         "model_name": "RD64ClipText",
@@ -467,5 +537,17 @@ models_list = [
         "hash": "a6164debbf1e851c3dcefa622111c42a78afd9bb8f1540e7d01172ddf642c3b5",
         "url": f"{assets_repo}/v0.1.0_lp/warping_spade-fix.onnx"
 
+    },
+    {
+        "model_name": "RefLDMVAEEncoder",
+        "local_path": f"{models_dir}/ref_ldm_vae_encoder.onnx",
+        "hash": "YOUR_VAE_ENCODER_HASH_HERE", # Replace with actual hash
+        "url": f"{assets_repo}/v_YOUR_VERSION/ref_ldm_vae_encoder.onnx" # Replace with actual URL
+    },
+    {
+        "model_name": "RefLDMVAEDecoder",
+        "local_path": f"{models_dir}/ref_ldm_vae_decoder.onnx",
+        "hash": "YOUR_VAE_DECODER_HASH_HERE", # Replace with actual hash
+        "url": f"{assets_repo}/v_YOUR_VERSION/ref_ldm_vae_decoder.onnx" # Replace with actual URL
     }
 ]

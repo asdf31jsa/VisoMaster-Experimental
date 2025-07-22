@@ -30,7 +30,7 @@ COMMON_LAYOUT_DATA: LayoutDictTypes = {
         'FaceRestorerTypeSelection': {
             'level': 2,
             'label': 'Restorer Type',
-            'options': ['GFPGAN-v1.4', 'CodeFormer', 'GPEN-256', 'GPEN-512', 'GPEN-1024', 'GPEN-2048', 'RestoreFormer++', 'VQFR-v2'],
+            'options': ['GFPGAN-v1.4','GFPGAN-1024', 'CodeFormer', 'GPEN-256', 'GPEN-512', 'GPEN-1024', 'GPEN-2048', 'RestoreFormer++', 'VQFR-v2'],
             'default': 'GFPGAN-v1.4',
             'parentToggle': 'FaceRestorerEnableToggle',
             'requiredToggleValue': True,
@@ -76,36 +76,16 @@ COMMON_LAYOUT_DATA: LayoutDictTypes = {
             'requiredToggleValue': True,
             'help': 'Auto Adjust Restorer Blend Amount'
         },
-        'FaceRestorerAutoMapEnableToggle': {
-            'level': 2,
-            'label': 'Auto Restore Map',
-            'default': False,
-            'parentToggle': 'FaceRestorerEnableToggle',
-            'requiredToggleValue': True,
-            'help': 'Auto Adjust Restorer Blend Amount'
-        },
-        
-        'FaceRestorerAutoAdjustSlider': {
+        'FaceRestorerAutoSharpAdjustSlider': {
             'level': 3,
-            'label': 'adjust map sharpness',
-            'min_value': '0',
-            'max_value': '100',
-            'default': '50',
+            'label': 'adjust sharpness',
+            'min_value': '-60',
+            'max_value': '60',
+            'default': '0',
             'step': 1,
-            'parentToggle': 'FaceRestorerAutoMapEnableToggle',
+            'parentToggle': 'FaceRestorerAutoEnableToggle',
             'requiredToggleValue': True,
-            'help': 'increase the restore on parts which are less sharp'
-        },        
-        'FaceRestorerAutoAdjustKernelSlider': {
-            'level': 3,
-            'label': 'sharpness mask blur',
-            'min_value': '0',
-            'max_value': '100',
-            'default': '8',
-            'step': 1,
-            'parentToggle': 'FaceRestorerAutoMapEnableToggle',
-            'requiredToggleValue': True,
-            'help': 'Kernel for blur the restore mask (so not singel pixels gets sharper)'
+            'help': 'Adjust sharp calc. mostly needed for over 0, which makes the swap sharper. depends on swap model, restorer model, resolution, face size,...'
         },        
         'FaceRestorerEnable2Toggle': {
             'level': 1,
@@ -116,8 +96,7 @@ COMMON_LAYOUT_DATA: LayoutDictTypes = {
         'FaceRestorerType2Selection': {
             'level': 2,
             'label': 'Restorer Type',
-            'options': ['GFPGAN-v1.4', 'CodeFormer', 'GPEN-256', 'GPEN-512', 'GPEN-1024', 'GPEN-2048', 'RestoreFormer++', 'VQFR-v2'],
-            'default': 'GFPGAN-v1.4',
+            'options': ['GFPGAN-v1.4', 'GFPGAN-1024', 'CodeFormer', 'GPEN-256', 'GPEN-512', 'GPEN-1024', 'GPEN-2048', 'RestoreFormer++', 'VQFR-v2'],            'default': 'GFPGAN-v1.4',
             'parentToggle': 'FaceRestorerEnable2Toggle',
             'requiredToggleValue': True,
             'help': 'Select the model type for face restoration.'

@@ -1951,7 +1951,7 @@ def histogram_matching(source_image, target_image, diffslider):
         target_pmf = target_hist / target_hist.sum()
 
         # Smooth PMFs slightly
-        kernel = torch.tensor([1., 2., 1.], device=device) / 4.0
+        kernel = torch.tensor([0.0, 1.0, 0.0], device=device)
         source_pmf = torch.nn.functional.conv1d(source_pmf[None, None], kernel[None, None], padding=1).squeeze()
         target_pmf = torch.nn.functional.conv1d(target_pmf[None, None], kernel[None, None], padding=1).squeeze()
 
@@ -1962,10 +1962,14 @@ def histogram_matching(source_image, target_image, diffslider):
         source_cdf = torch.maximum(source_cdf, torch.cummax(source_cdf, dim=0)[0])
         target_cdf = torch.maximum(target_cdf, torch.cummax(target_cdf, dim=0)[0])
 
-        # Check for NaNs/Infs
-        if torch.isnan(source_cdf).any() or torch.isinf(source_cdf).any():
-            print(f"Channel {channel}: source_cdf contains NaN or Inf values. Skipping.")
-            continue
+        # 🔁 OPTIONAL: Additional light smoothing on CDFs
+        kernel_cdf = torch.tensor([0.5, 0.0, 0.5], device=device)
+        source_cdf = torch.nn.functional.conv1d(source_cdf[None, None], kernel_cdf[None, None], padding=1).squeeze()
+        target_cdf = torch.nn.functional.conv1d(target_cdf[None, None], kernel_cdf[None, None], padding=1).squeeze()
+
+        # Re-enforce monotonicity again just in case
+        source_cdf = torch.maximum(source_cdf, torch.cummax(source_cdf, dim=0)[0])
+        target_cdf = torch.maximum(target_cdf, torch.cummax(target_cdf, dim=0)[0])        
 
         # Interpolate target pixel values to get their CDF values
         target_channel_flat = target_channel.flatten()

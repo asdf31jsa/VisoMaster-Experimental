@@ -62,8 +62,28 @@ SETTINGS_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Auto Swap',
             'default': False,
             'help': 'Automatically Swap all faces using selected Source Faces/Embeddings when loading an video/image file'
-        },
+        }, 
     },
+    'Misc':{    
+        'CommandLineDebugEnableToggle': {
+            'level': 3,
+            'label': 'Commandline Infos',
+            'default': False,           
+            'help': 'used restore strenght and needed itterations in Commandline + jpeg/mpeg infos'
+        },        
+        'SwapOnlyBestMatchEnableToggle': {
+            'level': 3,
+            'label': 'Swap only best match',
+            'default': False,           
+            'help': 'only swap highest face match per face (not every match above treshold)'
+        },
+        'AutoSaveWorkspaceToggle':{
+            'level': 3,
+            'label': 'Auto Save Workspace',
+            'default': False,
+            'help': 'Auto Saves Workspace .json in output folder at end of recording (only the status at end of recording)'
+        }
+    },        
     'Detectors': {
         'DetectorModelSelection': {
             'level': 1,
@@ -288,7 +308,7 @@ SETTINGS_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Input Faces Include Subfolders',
             'default': False,
             'help': 'Include all files from Subfolders when choosing Input Faces Folder'
-        }
+        },
     }
 }
 

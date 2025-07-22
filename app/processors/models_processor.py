@@ -32,6 +32,8 @@ from app.processors.utils.dfm_model import DFMModel
 from app.processors.models_data import models_list, arcface_mapping_model_dict, models_trt_list
 from app.helpers.miscellaneous import is_file_exists
 from app.helpers.downloader import download_file
+from app.processors.models_data import models_list, arcface_mapping_model_dict, models_trt_list, models_dir
+from app.processors.utils import faceutil # Assuming faceutil contains create_faded_inner_mask
 
 if TYPE_CHECKING:
     from app.ui.main_ui import MainWindow
@@ -96,6 +98,15 @@ class ModelsProcessor(QtCore.QObject):
         self.face_swappers = FaceSwappers(self)
         self.frame_enhancers = FrameEnhancers(self)
         self.face_editors = FaceEditors(self)
+        
+        # Denoiser specific initializations
+        self.lp_mask_crop_latent = faceutil.create_faded_inner_mask(size=(64, 64), border_thickness=3, fade_thickness=8, blur_radius=3, device=self.device)
+        self.lp_mask_crop_latent = torch.unsqueeze(self.lp_mask_crop_latent, 0) # Shape: [1, 64, 64]
+        self.betas_np = np.linspace(0.00085**0.5, 0.0120**0.5, 1000, dtype=np.float64)**2 # Common linear schedule for 1000 steps
+        self.alphas_np = 1.0 - self.betas_np
+        self.alphas_cumprod_np = np.cumprod(self.alphas_np, axis=0)
+        self.alphas_cumprod_torch = torch.from_numpy(self.alphas_cumprod_np).float().to(self.device)
+        self.vae_scale_factor = 0.18215 # Typical LDM VAE scale factor
 
         self.clip_session = []
         self.arcface_dst = np.array( [[38.2946, 51.6963], [73.5318, 51.5014], [56.0252, 71.7366], [41.5493, 92.3655], [70.7299, 92.2041]], dtype=np.float32)
@@ -135,6 +146,9 @@ class ModelsProcessor(QtCore.QObject):
 
             # Check if another thread has already loaded an instance for this model, if yes then delete the current one and return that instead
             if self.models[model_name]:
+                                                     
+                                                                                
+                                                 
                 del model_instance
                 gc.collect()
                 return self.models[model_name]
@@ -209,6 +223,17 @@ class ModelsProcessor(QtCore.QObject):
         
         self.clip_session = []
         gc.collect()
+
+    def unload_model(self, model_name_to_unload):
+        with self.model_lock:
+            if model_name_to_unload in self.models and self.models[model_name_to_unload] is not None:
+                print(f"Unloading model: {model_name_to_unload}")
+                del self.models[model_name_to_unload]
+                self.models[model_name_to_unload] = None # Explicitly set to None after del
+                gc.collect()
+                torch.cuda.empty_cache()
+            # else:
+            #     print(f"Model {model_name_to_unload} not found or not loaded for unloading.")
 
     def showModelLoadingProgressBar(self):
         self.main_window.model_load_dialog.show()
@@ -390,11 +415,17 @@ class ModelsProcessor(QtCore.QObject):
     def apply_occlusion(self, img, amount):
         return self.face_masks.apply_occlusion(img, amount)
     
-    def apply_dfl_xseg(self, img, amount, mouth, parameters):
-        return self.face_masks.apply_dfl_xseg(img, amount, mouth, parameters)
+    def apply_dfl_xseg(self, img, amount, background, mouth, parameters):
+        return self.face_masks.apply_dfl_xseg(img, amount, background, mouth, parameters)
     
-    def apply_face_parser(self, img, parameters, mode):
-        return self.face_masks.apply_face_parser(img, parameters, mode)
+    #def apply_face_parser(self, img, parameters, mode):
+    #    return self.face_masks.apply_face_parser(img, parameters, mode)
+        
+    def process_masks_and_masks(self, swap_restorecalc, original_face_512, parameters):
+        return self.face_masks.process_masks_and_masks(swap_restorecalc, original_face_512, parameters)
+ 
+    #def compute_bg_mask(self, img, dilation, occluder_dilation):
+    #    return self.face_masks.compute_bg_mask(img, dilation, occluder_dilation)
     
     def apply_face_makeup(self, img, parameters):
         return self.face_editors.apply_face_makeup(img, parameters)
@@ -405,5 +436,11 @@ class ModelsProcessor(QtCore.QObject):
     def restore_eyes(self, img_orig, img_swap, kpss_orig, blend_alpha=0.5, feather_radius=10, size_factor=3.5, radius_factor_x=1.0, radius_factor_y=1.0, x_offset=0, y_offset=0, eye_spacing_offset=0):
         return self.face_masks.restore_eyes(img_orig, img_swap, kpss_orig, blend_alpha, feather_radius, size_factor, radius_factor_x, radius_factor_y, x_offset, y_offset, eye_spacing_offset)
 
-    def apply_fake_diff(self, swapped_face, original_face, lower_limit_thresh, lower_value, upper_thresh, upper_value, middle_value):
-        return self.face_masks.apply_fake_diff(swapped_face, original_face, lower_limit_thresh, lower_value, upper_thresh, upper_value, middle_value)
+    def apply_fake_diff(self, swapped_face, original_face, lower_limit_thresh, lower_value, upper_thresh, upper_value, middle_value, parameters):
+        return self.face_masks.apply_fake_diff(swapped_face, original_face, lower_limit_thresh, lower_value, upper_thresh, upper_value, middle_value, parameters)
+   
+    def run_onnx(self, image, output):
+        return self.face_masks.run_onnx(image, output)
+    
+    def apply_perceptual_diff_onnx(self, swapped_face, original_face, swap_mask, lower_limit_thresh, lower_value, upper_thresh, upper_value, middle_value, feature_layer, ExcludeVGGMaskEnableToggle):
+        return self.face_masks.apply_perceptual_diff_onnx(swapped_face, original_face, swap_mask, lower_limit_thresh, lower_value, upper_thresh, upper_value, middle_value, feature_layer, ExcludeVGGMaskEnableToggle)

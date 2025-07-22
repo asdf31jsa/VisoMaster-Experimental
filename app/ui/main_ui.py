@@ -1,5 +1,6 @@
 from typing import Dict
 from pathlib import Path
+import os
 from functools import partial
 import copy
 
@@ -27,6 +28,7 @@ from app.ui.widgets.settings_layout_data import SETTINGS_LAYOUT_DATA
 from app.ui.widgets.face_editor_layout_data import FACE_EDITOR_LAYOUT_DATA
 from app.helpers.miscellaneous import DFM_MODELS_DATA, ParametersDict
 from app.helpers.typing_helper import FacesParametersTypes, ParametersTypes, ControlTypes, MarkerTypes
+from app.processors.models_data import models_dir as global_models_dir # For UNet model discovery
 
 ParametersWidgetTypes = Dict[str, widget_components.ToggleButton|widget_components.SelectionBox|widget_components.ParameterDecimalSlider|widget_components.ParameterSlider|widget_components.ParameterText]
 
@@ -204,6 +206,41 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Set face_swap_tab as the default focused tab
         self.tabWidget.setCurrentIndex(0)
         # widget_actions.add_groupbox_and_widgets_from_layout_map(self)
+
+        self._populate_denoiser_unet_models() # Populate UNet models
+
+    def _populate_denoiser_unet_models(self):
+        unet_model_files = []
+        # default_unet_model = "ref_ldm_unet_real_refs_n1.onnx" # Prioritize based on existence and sorting later
+
+        if os.path.exists(global_models_dir):
+            for f_name in os.listdir(global_models_dir):
+                if f_name.startswith("ref_ldm_unet_") and f_name.endswith(".onnx"):
+                    unet_model_files.append(f_name)
+        
+        # Ensure the default model is in the list if it exists, and prioritize it
+        unet_model_files.sort() # Sort alphabetically for consistent order
+
+        denoiser_model_widget = self.parameter_widgets.get("DenoiserUNetModelSelection")
+        if denoiser_model_widget and isinstance(denoiser_model_widget, widget_components.SelectionBox):
+            current_selection_in_control = self.control.get("DenoiserUNetModelSelection")
+            denoiser_model_widget.clear()
+
+            if unet_model_files:
+                denoiser_model_widget.addItems(unet_model_files)
+                
+                # If a previous selection exists and is still valid, keep it. Otherwise, pick the first.
+                if not current_selection_in_control or current_selection_in_control not in unet_model_files:
+                    new_selection = unet_model_files[0]
+                    self.control["DenoiserUNetModelSelection"] = new_selection
+                    denoiser_model_widget.setCurrentText(new_selection)
+                else:
+                    denoiser_model_widget.setCurrentText(current_selection_in_control)
+            else:
+                denoiser_model_widget.addItem("No UNet models found")
+                self.control["DenoiserUNetModelSelection"] = "" # No model selected
+                denoiser_model_widget.setCurrentText("No UNet models found")
+
     def __init__(self):
         super(MainWindow, self).__init__()
         self.setupUi(self)
@@ -268,6 +305,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if Path('last_workspace.json').is_file():
             load_dialog = widget_components.LoadLastWorkspaceDialog(self)
             load_dialog.exec_()
-
+            # Re-populate and set current selection for dynamic widgets like DenoiserUNetModelSelection
+            self._populate_denoiser_unet_models()
+   
     def save_last_workspace(self):
         pass

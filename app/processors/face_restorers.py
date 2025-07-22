@@ -15,7 +15,7 @@ class FaceRestorers:
 
     def apply_facerestorer(self, swapped_face_upscaled, restorer_det_type, restorer_type, restorer_blend, fidelity_weight, detect_score):
         temp = swapped_face_upscaled
-        t512 = v2.Resize((512, 512), antialias=False)
+        t512 = v2.Resize((512, 512), antialias=True)
         t256 = v2.Resize((256, 256), antialias=False)
         t1024 = v2.Resize((1024, 1024), antialias=False)
         t2048 = v2.Resize((2048, 2048), antialias=False)
@@ -60,6 +60,10 @@ class FaceRestorers:
 
         if restorer_type == 'GFPGAN-v1.4':
             self.run_GFPGAN(temp, outpred)
+            
+        elif restorer_type == 'GFPGAN-1024':
+            outpred = torch.empty((1, 3, 1024, 1024), dtype=torch.float32, device=self.models_processor.device).contiguous()
+            self.run_GFPGAN1024(temp, outpred)
 
         elif restorer_type == 'CodeFormer':
             self.run_codeformer(temp, outpred, fidelity_weight)
@@ -94,7 +98,7 @@ class FaceRestorers:
         outpred = torch.div(outpred, 2)
         outpred = torch.mul(outpred, 255)
 
-        if restorer_type == 'GPEN-256' or restorer_type == 'GPEN-1024' or restorer_type == 'GPEN-2048':
+        if restorer_type == 'GPEN-256' or restorer_type == 'GPEN-2048' or restorer_type == 'GPEN-1024' or restorer_type == 'GFPGAN-1024':
             outpred = t512(outpred)
 
         # Invert Transform
@@ -120,6 +124,20 @@ class FaceRestorers:
         elif self.models_processor.device != "cpu":
             self.models_processor.syncvec.cpu()
         self.models_processor.models['GFPGANv1.4'].run_with_iobinding(io_binding)
+
+    def run_GFPGAN1024(self, image, output):
+        if not self.models_processor.models['GFPGAN1024']:
+            self.models_processor.models['GFPGAN1024'] = self.models_processor.load_model('GFPGAN1024')
+
+        io_binding = self.models_processor.models['GFPGAN1024'].io_binding()
+        io_binding.bind_input(name='input', device_type=self.models_processor.device, device_id=0, element_type=np.float32, shape=(1,3,512,512), buffer_ptr=image.data_ptr())
+        io_binding.bind_output(name='output', device_type=self.models_processor.device, device_id=0, element_type=np.float32, shape=(1,3,1024,1024), buffer_ptr=output.data_ptr())
+
+        if self.models_processor.device == "cuda":
+            torch.cuda.synchronize()
+        elif self.models_processor.device != "cpu":
+            self.models_processor.syncvec.cpu()
+        self.models_processor.models['GFPGAN1024'].run_with_iobinding(io_binding)
 
     def run_GPEN_256(self, image, output):
         if not self.models_processor.models['GPENBFR256']:
