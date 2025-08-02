@@ -195,7 +195,7 @@ class FrameWorker(threading.Thread):
             for i, fface in enumerate(det_faces_data):
                 # Flag: nur den besten Match swappen?
                 best_only = control['SwapOnlyBestMatchEnableToggle']
-                print("best_only: ", best_only)
+                #print("best_only: ", best_only)
                 if best_only:
                     # ------------------
                     # Best-Only Modus
@@ -501,7 +501,7 @@ class FrameWorker(threading.Thread):
         original_face_128 = t128(original_face_256)
         return original_face_512, original_face_384, original_face_256, original_face_128
     
-    def get_affined_face_dim_and_swapping_latents(self, original_faces: tuple, swapper_model, dfm_model, s_e, t_e, parameters, tform):
+    def get_affined_face_dim_and_swapping_latents(self, original_faces: tuple, swapper_model, dfm_model, s_e, t_e, parameters, cmddebug, tform):
         original_face_512, original_face_384, original_face_256, original_face_128 = original_faces
         if swapper_model == 'Inswapper128':
             self.models_processor.load_inswapper_iss_emap('Inswapper128')
@@ -530,7 +530,7 @@ class FrameWorker(threading.Thread):
                     dim = 1
                     input_face_affined = original_face_128
                     #print("Resolution = 128", tform.scale)     
-                if control["CommandLineDebugEnableToggle"]:
+                if cmddebug:
                     print("Resolution", 128*dim)#, tform.scale)   
             else:
                 if parameters['SwapperResSelection'] == '128':
@@ -793,7 +793,7 @@ class FrameWorker(threading.Thread):
         dim=1
         if (s_e is not None and len(s_e) > 0) or (swapper_model == 'DeepFaceLive (DFM)' and dfm_model):
 
-            input_face_affined, dfm_model, dim, latent = self.get_affined_face_dim_and_swapping_latents(original_faces, swapper_model, dfm_model, s_e, t_e, parameters, tform)
+            input_face_affined, dfm_model, dim, latent = self.get_affined_face_dim_and_swapping_latents(original_faces, swapper_model, dfm_model, s_e, t_e, parameters, control["CommandLineDebugEnableToggle"], tform)
 
             # Optional Scaling # change the transform matrix scaling from center
             if parameters['FaceAdjEnableToggle']:

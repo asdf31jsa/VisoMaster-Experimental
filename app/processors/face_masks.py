@@ -116,26 +116,20 @@ class FaceMasks:
         outpred = gauss(outpred)  
         if amount2 != amount:
             if amount2 > 0:
-                kernel2 = torch.ones((1,1,3,3), dtype=torch.float32, device=self.models_processor.device)
+                r2 = int(amount2)
+                k2 = 2*r2 + 1
+                # Dilatation um Radius r2
+                outpred2 = F.max_pool2d(outpred2, kernel_size=k2, stride=1, padding=r2)
+                outpred2 = outpred2.clamp(0,1)
 
-                for _ in range(int(amount2)):
-                    outpred2 = torch.nn.functional.conv2d(outpred2, kernel2, padding=(1, 1))
-                    outpred2 = torch.clamp(outpred2, 0, 1)
-
-                #outpred2 = torch.squeeze(outpred2)
-
-            if amount2 < 0:
-                outpred2 = torch.neg(outpred2)
-                outpred2 = torch.add(outpred2, 1)
-                kernel2 = torch.ones((1,1,3,3), dtype=torch.float32, device=self.models_processor.device)
-
-                for _ in range(int(-amount2)):
-                    outpred2 = torch.nn.functional.conv2d(outpred2, kernel2, padding=(1, 1))
-                    outpred2 = torch.clamp(outpred2, 0, 1)
-
-                #outpred2 = torch.squeeze(outpred2)
-                outpred2 = torch.neg(outpred2)
-                outpred2 = torch.add(outpred2, 1)
+            elif amount2 < 0:
+                r2 = int(-amount2)
+                k2 = 2*r2 + 1
+                # Erosion = invertieren → dilatieren → invertieren
+                outpred2 = 1 - outpred2
+                outpred2 = F.max_pool2d(outpred2, kernel_size=k2, stride=1, padding=r2)
+                outpred2 = 1 - outpred2
+                outpred2 = outpred2.clamp(0,1)
             #outpred2_autocolor = outpred2.clone()
             
             gauss = transforms.GaussianBlur(parameters['XSeg2BlurSlider']*2+1, (parameters['XSeg2BlurSlider']+1)*0.2)
