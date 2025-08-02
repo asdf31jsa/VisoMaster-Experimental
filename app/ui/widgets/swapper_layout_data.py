@@ -1190,10 +1190,10 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
         'ColorNoiseDecimalSlider': {
             'level': 1,
             'label': 'Noise',
-            'min_value': '0.0',
-            'max_value': '10.0',
+            'min_value': '0.00',
+            'max_value': '20.00',
             'default': '0.00',
-            'step': 0.05,
+            'step': 1.00,
             'decimals': 2,
             'help': 'Add noise to swapped face.'
         },        
@@ -1461,7 +1461,13 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'help': 'Shifts the mouth Right detection point up and down.'
         },
     }, 
-    'Experimental Settings (very experimental, better don´t touch)': {                  
+    'Experimental Settings (very experimental, better don´t touch)': {                          
+        'AnalyseImageEnableToggle': {
+            'level': 1,
+            'label': 'Analyse Image',
+            'default': False,
+            'help': 'Enable AutoColor Transfer: 1. Hans Test without mask, 2. Hans Test with mask, 3. DFL Method without mask, 4. DFL Original Method.'
+        },        
         'DFLXSegBGEnableToggle': {
             'level': 2,
             'label': 'Xseg 2 Background',

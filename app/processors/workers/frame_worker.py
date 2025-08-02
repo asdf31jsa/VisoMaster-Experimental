@@ -195,7 +195,7 @@ class FrameWorker(threading.Thread):
             for i, fface in enumerate(det_faces_data):
                 # Flag: nur den besten Match swappen?
                 best_only = control['SwapOnlyBestMatchEnableToggle']
-
+                print("best_only: ", best_only)
                 if best_only:
                     # ------------------
                     # Best-Only Modus
@@ -530,7 +530,7 @@ class FrameWorker(threading.Thread):
                     dim = 1
                     input_face_affined = original_face_128
                     #print("Resolution = 128", tform.scale)     
-                if parameters["CommandLineDebugEnableToggle"]:
+                if control["CommandLineDebugEnableToggle"]:
                     print("Resolution", 128*dim)#, tform.scale)   
             else:
                 if parameters['SwapperResSelection'] == '128':
@@ -786,6 +786,9 @@ class FrameWorker(threading.Thread):
         t128_mask = v2.Resize((128, 128), interpolation=v2.InterpolationMode.BILINEAR, antialias=False)
 
         original_face_512, original_face_384, original_face_256, original_face_128 = self.get_transformed_and_scaled_faces(tform, img)
+        if parameters['AnalyseImageEnableToggle']:
+            image_analyse = self.analyze_image(original_face_512)
+            print("image_analyse", image_analyse)
         original_faces = (original_face_512, original_face_384, original_face_256, original_face_128)
         dim=1
         if (s_e is not None and len(s_e) > 0) or (swapper_model == 'DeepFaceLive (DFM)' and dfm_model):
@@ -873,7 +876,7 @@ class FrameWorker(threading.Thread):
             swap_mask = gauss(swap_mask)
         
         mouth = 0
-        #BgExclude = 0
+        BgExclude = 0
         BgExcludeOccluder = 0
         
         if parameters["FaceParserEnableToggle"] or (parameters["DFLXSegEnableToggle"] and parameters["DFLXSeg2EnableToggle"] and parameters["DFLXSegSizeSlider"] != parameters["DFLXSeg2SizeSlider"] and (parameters["DFLXSegBGEnableToggle"] or parameters["XSegMouthEnableToggle"])) or ((parameters["TransferTextureEnableToggle"] or parameters["DifferencingEnableToggle"]) and parameters["ExcludeMaskEnableToggle"]): #parameters["BgExcludeEnableToggle"]
@@ -954,7 +957,7 @@ class FrameWorker(threading.Thread):
             adjust_sharpness = float(parameters["FaceRestorerAutoSharpAdjustSlider"])
             scale_factor = round(tform.scale, 2)
             
-            alpha_auto, blur_value = self.face_restorer_auto(original_face_512_autorestore, swap_original_autorestore, swap_restorecalc, alpha_restorer, adjust_sharpness, scale_factor, parameters["CommandLineDebugEnableToggle"], restore_mask)#, parameters["FaceRestorerMaskSlider"], parameters["AutoRestorerTenengradTreshSlider"]/100, parameters["AutoRestorerCombWeightSlider"]/100)
+            alpha_auto, blur_value = self.face_restorer_auto(original_face_512_autorestore, swap_original_autorestore, swap_restorecalc, alpha_restorer, adjust_sharpness, scale_factor, control["CommandLineDebugEnableToggle"], restore_mask)#, parameters["FaceRestorerMaskSlider"], parameters["AutoRestorerTenengradTreshSlider"]/100, parameters["AutoRestorerCombWeightSlider"]/100)
 
         if parameters["FaceRestorerAutoEnableToggle"] and parameters["FaceRestorerEnableToggle"]:
             if blur_value != 0:
@@ -962,7 +965,7 @@ class FrameWorker(threading.Thread):
                 #sigma = blur_value * 0.2
                 #swap = transforms.GaussianBlur(kernel_size, sigma)(swap_original) 
                 swap = swap_original
-                if parameters["CommandLineDebugEnableToggle"]:
+                if control["CommandLineDebugEnableToggle"]:
                     print("blur: ", blur_value)
             elif alpha_auto != 0:
                 swap = swap_restorecalc * alpha_auto + swap_original * (1 - alpha_auto)
@@ -1054,7 +1057,7 @@ class FrameWorker(threading.Thread):
 
             mask = torch.ones((128, 128), dtype=torch.uint8, device=self.models_processor.device)
             mask = mask.unsqueeze(0)
-            mask_texture = mask.clone()
+            mask_texture = t128_mask(calc_mask.clone())
             if parameters["ExcludeOriginalVGGMaskEnableToggle"]:
                 swapped_face_resized = swap.clone()
                 original_face_resized = original_face_512.clone()
@@ -1230,7 +1233,7 @@ class FrameWorker(threading.Thread):
             block_shift_blend = parameters["BlockShiftBlendAmountSlider"]/100.0#*max(1,(parameters["BlockShiftAdjustAmountSlider"]*2*tform_scale2))# * tform.scale
             #block_shift_blend = min(1, block_shift_blend)
             #block_shift_blend = max(0.1, block_shift_blend)
-            if parameters["CommandLineDebugEnableToggle"]:
+            if control["CommandLineDebugEnableToggle"]:
                 print("MPEG Blocksize: ", tform_scale, "(resize_factor: ", tform.scale, ")")
 
             swap = torch.add(torch.mul(swap2, block_shift_blend), torch.mul(swap, 1 - block_shift_blend))                          
@@ -1261,7 +1264,7 @@ class FrameWorker(threading.Thread):
                     jpeg_q = int(round(base_quality + (100 - base_quality) * s))
                     jpeg_q = max(1, min(100, jpeg_q))  # Clamp auf [1,100]
                     
-                    if parameters["CommandLineDebugEnableToggle"]:
+                    if control["CommandLineDebugEnableToggle"]:
                         print("JPEG Quality: ", jpeg_q, " (resize_factor: ", tform.scale, ")")
 
                     swap2 = faceutil.jpegBlur(swap, jpeg_q)
@@ -1270,6 +1273,11 @@ class FrameWorker(threading.Thread):
                     
             except:
                 pass
+
+        if parameters['AnalyseImageEnableToggle']:
+            image_analyse_swap = self.analyze_image(swap)
+            print("original:", image_analyse)
+            print("    swap: ", image_analyse_swap)
 
         # Add blur to swap_mask results
         gauss = transforms.GaussianBlur(parameters['OverallMaskBlendAmountSlider'] * 2 + 1, (parameters['OverallMaskBlendAmountSlider'] + 1) * 0.2)
