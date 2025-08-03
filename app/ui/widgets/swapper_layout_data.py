@@ -244,6 +244,14 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             'label': 'Transfer Texture',
             'default': False,
             'help': 'Enable Texture Transfer'
+        },   
+        'TransferTextureModeEnableToggle': {
+            'level': 2,
+            'label': 'Mode 2',
+            'default': False,
+            'parentToggle': 'TransferTextureEnableToggle',
+            'requiredToggleValue': True,
+            'help': 'Different values for gradient magnitude calculation, sometimes better but sometimes too much stripes in face'
         },
         'TransferTextureBlendAmountSlider': {
             'level': 2,
