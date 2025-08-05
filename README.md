@@ -7,7 +7,7 @@ use new "mask show"-Selection for "View Face Mask" to see masks for transfer_tex
 
 start with a new Workspace!
 
-
+https://github.com/asdf31jsa/VisoMaster-Experimental/blob/ALL_Working/model_assets/vgg_combo_relu3_3_relu3_1.onnx   <- goes in .\model_assets
 
 # VisoMaster 
 ### VisoMaster is a powerful yet easy-to-use tool for face swapping and editing in images and videos. It utilizes AI to produce natural-looking results with minimal effort, making it ideal for both casual users and professionals.  
