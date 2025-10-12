@@ -177,10 +177,10 @@ class FaceMasks:
                 outpred_calc_dill = F.max_pool2d(outpred_calc_dill, kernel_size=k2, stride=1, padding=r2)
                 outpred_calc_dill = outpred_calc_dill.clamp(0,1)
                 if parameters['BGExcludeBlurAmountSlider'] > 0:
-                    #orig = outpred_calc_dill.clone()
+                    orig = outpred_calc_dill.clone()
                     gauss = transforms.GaussianBlur(parameters['BGExcludeBlurAmountSlider']*2+1, (parameters['BGExcludeBlurAmountSlider']+1)*0.2)
                     outpred_calc_dill = gauss(outpred_calc_dill.type(torch.float32))
-                    #outpred_calc_dill = torch.max(outpred_calc_dill, orig)
+                    outpred_calc_dill = torch.max(outpred_calc_dill, orig)
                 outpred_calc_dill = outpred_calc_dill.clamp(0,1) 
             elif amount_calc < 0:
                 r2 = int(-amount_calc)
@@ -188,12 +188,12 @@ class FaceMasks:
                 # Erosion = invertieren → dilatieren → invertieren
                 outpred_calc_dill = 1 - outpred_calc_dill
                 outpred_calc_dill = F.max_pool2d(outpred_calc_dill, kernel_size=k2, stride=1, padding=r2)
-                outpred_calc_dill = 1 - outpred_calc_dill
                 if parameters['BGExcludeBlurAmountSlider'] > 0:
                     orig = outpred_calc_dill.clone()
                     gauss = transforms.GaussianBlur(parameters['BGExcludeBlurAmountSlider']*2+1, (parameters['BGExcludeBlurAmountSlider']+1)*0.2)
                     outpred_calc_dill = gauss(outpred_calc_dill.type(torch.float32))
                     outpred_calc_dill = torch.max(outpred_calc_dill, orig)
+                outpred_calc_dill = 1 - outpred_calc_dill
                 outpred_calc_dill = outpred_calc_dill.clamp(0,1)  
         return outpred, outpred_calc, outpred_calc_dill, outpred_noFP
 

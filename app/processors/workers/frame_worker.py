@@ -998,10 +998,6 @@ class FrameWorker(threading.Thread):
         texture_exclude_512 = BgExclude.clone()
         swap_mask_noFP = swap_mask.clone()  # unveränderte 128er Basismaske für Editor-End
         
-        M_ref = tform.params[0:2]
-        ones_column_ref = np.ones((kps_5.shape[0], 1), dtype=np.float32)
-        kps_ref = np.hstack([kps_5, ones_column_ref]) @ M_ref.T
-        
         swap = torch.clamp(swap, 0.0, 255.0)
         
         # Expression Restorer beginning
@@ -1020,7 +1016,12 @@ class FrameWorker(threading.Thread):
 
         # First Restorer
         swap_original = swap.clone()   
-        
+
+        if parameters["FaceRestorerEnableToggle"] or parameters["FaceRestorerEnableToggle"]:
+            M_ref = tform.params[0:2]
+            ones_column_ref = np.ones((kps_5.shape[0], 1), dtype=np.float32)
+            kps_ref = np.hstack([kps_5, ones_column_ref]) @ M_ref.T
+                    
         if parameters["FaceRestorerEnableToggle"]:
             swap_restorecalc = self.models_processor.apply_facerestorer(swap, parameters['FaceRestorerDetTypeSelection'], parameters['FaceRestorerTypeSelection'], parameters["FaceRestorerBlendSlider"], parameters['FaceFidelityWeightDecimalSlider'], control['DetectorScoreSlider'], kps_ref)                                    
         else:
@@ -1168,7 +1169,7 @@ class FrameWorker(threading.Thread):
             mask_forcalc_512 = calc_mask.clone()
         #calc_mask = calc_mask + texture_exclude_512
         #calc_mask = torch.where(calc_mask > 0.1, 1, 0).float()
-        
+
         # First Restorer and Auto Restore pass (after masks)
         if parameters["FaceRestorerEnableToggle"] and parameters["FaceRestorerAutoEnableToggle"]:
 
@@ -1182,7 +1183,7 @@ class FrameWorker(threading.Thread):
             automaskblur = 2 #parameters["FaceRestorerAutoSharpMaskBlurSlider"]
             restore_mask = mask_forcalc_512.clone()
             
-            alpha_auto, blur_value = self.face_restorer_auto(original_face_512_autorestore, swap_original_autorestore, swap_restorecalc, alpha_restorer, adjust_sharpness, scale_factor, debug, restore_mask, automasktoggle, automaskadjust, automaskblur)#, parameters["FaceRestorerMaskSlider"], parameters["AutoRestorerTenengradTreshSlider"]/100, parameters["AutoRestorerCombWeightSlider"]/100)
+            alpha_auto, blur_value, map_alpha = self.face_restorer_auto(original_face_512_autorestore, swap_original_autorestore, swap_restorecalc, alpha_restorer, adjust_sharpness, scale_factor, debug, restore_mask, automasktoggle, automaskadjust, automaskblur)#, parameters["FaceRestorerMaskSlider"], parameters["AutoRestorerTenengradTreshSlider"]/100, parameters["AutoRestorerCombWeightSlider"]/100)
 
             if blur_value > 0:
                 kernel_size = 2 * blur_value + 1
@@ -1192,6 +1193,8 @@ class FrameWorker(threading.Thread):
                 debug_info["Restore1"] = f": {-blur_value:.2f}"
             elif isinstance(alpha_auto, torch.Tensor):
                 swap = swap_restorecalc * alpha_auto + swap_original * (1 - alpha_auto)                
+                if debug:
+                    debug_info["Restore1"] = f": {map_alpha*100:.2f}"
             elif alpha_auto != 0:
                 swap = swap_restorecalc * alpha_auto + swap_original * (1 - alpha_auto)
                 if debug:
@@ -1236,7 +1239,7 @@ class FrameWorker(threading.Thread):
                 automaskblur2 = 2 #parameters["FaceRestorerAutoSharpMask2BlurSlider"]
                 restore_mask = mask_forcalc_512.clone()
                 
-                alpha_auto2, blur_value2 = self.face_restorer_auto(original_face_512_autorestore2, swap_original_autorestore2, swap2, alpha_restorer2, adjust_sharpness2, scale_factor2, debug, restore_mask, automasktoggle2, automaskadjust2, automaskblur2)#, parameters["FaceRestorerMaskSlider"], parameters["AutoRestorerTenengradTreshSlider"]/100, parameters["AutoRestorerCombWeightSlider"]/100)
+                alpha_auto2, blur_value2, map_alpha = self.face_restorer_auto(original_face_512_autorestore2, swap_original_autorestore2, swap2, alpha_restorer2, adjust_sharpness2, scale_factor2, debug, restore_mask, automasktoggle2, automaskadjust2, automaskblur2)#, parameters["FaceRestorerMaskSlider"], parameters["AutoRestorerTenengradTreshSlider"]/100, parameters["AutoRestorerCombWeightSlider"]/100)
 
                 if blur_value2 > 0:
                     kernel_size = 2 * blur_value2 + 1
@@ -1246,6 +1249,8 @@ class FrameWorker(threading.Thread):
                     debug_info["Restore2"] = f": {-blur_value2:.2f}"
                 elif isinstance(alpha_auto2, torch.Tensor):
                     swap = swap2 * alpha_auto2 + swap_original2 * (1 - alpha_auto2)
+                    if debug:
+                        debug_info["Restore1"] = f": {map_alpha*100:.2f}"
                 elif alpha_auto2 != 0:
                     swap = swap2 * alpha_auto2 + swap_original2 * (1 - alpha_auto2)
                     if debug:
@@ -1274,10 +1279,10 @@ class FrameWorker(threading.Thread):
         # -------------------------------
         # AutoColor (Maske 512)
         # -------------------------------
-        if parameters.get("AutoColorEnableToggle", False):
+        if parameters.get("AutoColorEnableToggle", False) and not parameters.get("AutoColorEndEnableToggle", False):
             # calc_mask ist [1,512,512], 1=erlaubt
-            mask_autocolor = calc_mask.clone()
-            mask_autocolor = (mask_autocolor > 0.05)
+            mask_autocolor = calc_mask_dill.clone()
+            mask_autocolor = (mask_autocolor > 0.99)
             #swap_backup = swap.clone()
             
 
@@ -1387,12 +1392,6 @@ class FrameWorker(threading.Thread):
             # ggf. auf 128er für VGG-Diff (falls dein apply_perceptual_diff_onnx das erwartet)
             #mask_128_for_vgg = v2.Resize((128,128), interpolation=v2.InterpolationMode.BILINEAR, antialias=False)(mask_final_512)
             
-            mask_autocolor = calc_mask.clone()
-            mask_autocolor = (mask_autocolor > 0.05)
-            
-            # Histogrammvor-Anpassungen (wie bei dir)
-            swap_texture_backup = faceutil.histogram_matching_DFL_Orig(original_face_512, swap.clone(), mask_autocolor, 100)
-
             # Gradient (dein Shader)
             TransferTextureKernelSizeSlider   = 12
             TransferTextureSigmaDecimalSlider = 4.00
@@ -1413,12 +1412,17 @@ class FrameWorker(threading.Thread):
             global_contrast= parameters['TransferTexturePreContrastDecimalSlider']
 
             gradient_texture = self.gradient_magnitude(
-                original_face_512, calc_mask_dill,
+                original_face_512, calc_mask,
                 TransferTextureKernelSizeSlider, TransferTextureWeightSlider,
                 TransferTextureSigmaDecimalSlider, TransferTextureLambdSlider,
                 TransferTextureGammaDecimalSlider, TransferTexturePhiDecimalSlider,
                 TransferTextureThetaSlider, clip_limit, alpha_clahe, grid_size, global_gamma, global_contrast
             )
+            mask_autocolor = calc_mask_dill.clone()
+            mask_autocolor = (mask_autocolor > 0.99)
+            
+            # Histogrammvor-Anpassungen (wie bei dir)
+            swap_texture_backup = faceutil.histogram_matching_DFL_Orig(original_face_512, swap.clone(), mask_autocolor, 100)
             gradient_texture = faceutil.histogram_matching_DFL_Orig(original_face_512, gradient_texture, mask_autocolor, 100)
 
             # Boost (Gamma < 1 macht härter, >1 macht softer)
@@ -1449,7 +1453,7 @@ class FrameWorker(threading.Thread):
         # -------------------------------
         if parameters.get("DifferencingEnableToggle", False):
             # 128er Eingabemaske für VGG
-            diff_mask_128 = v2.Resize((128,128), interpolation=v2.InterpolationMode.BILINEAR, antialias=False)(calc_mask.clone())
+            diff_mask_128 = v2.Resize((128,128), interpolation=v2.InterpolationMode.BILINEAR, antialias=False)(calc_mask_dill.clone())
 
             swapped_face_resized  = swap.clone()
             original_face_resized = original_face_512.clone()
@@ -1536,9 +1540,9 @@ class FrameWorker(threading.Thread):
                 automasktoggle2 = parameters["FaceRestorerAutoMask2EnableToggle"]
                 automaskadjust2 = parameters["FaceRestorerAutoSharpMask2AdjustDecimalSlider"]
                 automaskblur2 = 2 #parameters["FaceRestorerAutoSharpMask2BlurSlider"]
-                restore_mask = calc_mask.clone()
+                restore_mask = calc_mask_dill.clone()
                 
-                alpha_auto2, blur_value2 = self.face_restorer_auto(original_face_512_autorestore2, swap_original_autorestore2, swap2, alpha_restorer2, adjust_sharpness2, scale_factor2, debug, restore_mask, automasktoggle2, automaskadjust2, automaskblur2)#, parameters["FaceRestorerMaskSlider"], parameters["AutoRestorerTenengradTreshSlider"]/100, parameters["AutoRestorerCombWeightSlider"]/100)
+                alpha_auto2, blur_value2, map_alpha = self.face_restorer_auto(original_face_512_autorestore2, swap_original_autorestore2, swap2, alpha_restorer2, adjust_sharpness2, scale_factor2, debug, restore_mask, automasktoggle2, automaskadjust2, automaskblur2)#, parameters["FaceRestorerMaskSlider"], parameters["AutoRestorerTenengradTreshSlider"]/100, parameters["AutoRestorerCombWeightSlider"]/100)
 
                 if blur_value2 > 0:
                     kernel_size = 2 * blur_value2 + 1                  # 3,5,7,...
@@ -1548,6 +1552,8 @@ class FrameWorker(threading.Thread):
                     debug_info["Restore2"] = f": {-blur_value2:.2f}"
                 elif isinstance(alpha_auto2, torch.Tensor):
                     swap = swap2 * alpha_auto2 + swap_original2 * (1 - alpha_auto2)
+                    if debug:
+                        debug_info["Restore1"] = f": {map_alpha*100:.2f}"
                 elif alpha_auto2 != 0:
                     swap = swap2 * alpha_auto2 + swap_original2 * (1 - alpha_auto2)
                     if debug:
@@ -1569,8 +1575,8 @@ class FrameWorker(threading.Thread):
         # -------------------------------
         if parameters.get("AutoColorEnableToggle", False) and parameters.get("AutoColorEndEnableToggle", False):
             # calc_mask ist [1,512,512], 1=erlaubt
-            mask_autocolor = calc_mask.clone()
-            mask_autocolor = (mask_autocolor > 0.05)
+            mask_autocolor = calc_mask_dill.clone()
+            mask_autocolor = (mask_autocolor > 0.99)
             #swap_backup = swap.clone()
             
             if parameters['AutoColorTransferTypeSelection'] == 'Test':
@@ -2360,7 +2366,7 @@ class FrameWorker(threading.Thread):
         iteration = 0
         prev_alpha = alpha
         iteration_blur = 0
-
+        map_alpha = 0
         while iteration < max_iterations:
             swap2 = swap * alpha + swap_original * (1 - alpha)
                                       
@@ -2389,14 +2395,14 @@ class FrameWorker(threading.Thread):
             if sharpness_diff >= 0 and alpha < 0.07:
                 prev_alpha = 0.0
                 base = swap_original
-                max_blur_strength = 10
+                max_blur_strength = 5
                 for bs in range(0, max_blur_strength + 1):
                     if bs == 0:
                         kernel_size = 1
                         sigma = 1e-6
                     else:
-                        kernel_size = 2 * bs + 1
-                        sigma = max(bs, 1e-6)
+                        kernel_size = 2 * (bs*5) + 1
+                        sigma = max(bs*5, 1e-6)
                     gaussian_blur = transforms.GaussianBlur(kernel_size, sigma)
                     swap2_blurred = gaussian_blur(base)
                     scores_swap_b = self.sharpness_score(swap2_blurred)
@@ -2406,12 +2412,12 @@ class FrameWorker(threading.Thread):
                     #    print(bs, sharpness_diff_b, scores_swap_b, score_new_original)
 
                     if sharpness_diff_b < 0:
-                        iteration_blur = 0 if bs == 0 else (bs - 1)
+                        iteration_blur = 0 if bs == 0 else ((bs*5) - (bs*2))
                         break
                     if abs(sharpness_diff_b) <= tolerance:
-                        iteration_blur = bs
+                        iteration_blur = bs*5
                         break
-                    iteration_blur = bs
+                    iteration_blur = bs*5
                 break
 
             if abs(prev_alpha - alpha) < min_alpha_change:
@@ -2430,6 +2436,7 @@ class FrameWorker(threading.Thread):
         # -------- NEW: Per-pixel alpha map, derived from sharpness distribution --------
         # Only if enabled AND we found a positive scalar alpha.
         if alpha_map_enable and (prev_alpha > 0.0):
+            map_alpha = prev_alpha                                                                                       
             # Build the *final* composite (for a stable map), then sharpness map of it:
             swap_final = swap * prev_alpha + swap_original * (1 - prev_alpha)
 
@@ -2462,10 +2469,10 @@ class FrameWorker(threading.Thread):
                 alpha_map = alpha_map * m + prev_alpha * (1.0 - m)
 
             # Return as [1,H,W] to broadcast with [3,H,W] later
-            return alpha_map.unsqueeze(0), iteration_blur
+            return alpha_map.unsqueeze(0), iteration_blur, map_alpha
 
         # Fallback: scalar like before
-        return prev_alpha, iteration_blur
+        return prev_alpha, iteration_blur, map_alpha
               
     def sharpness_score(
         self,
