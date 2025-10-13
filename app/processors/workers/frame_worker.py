@@ -1027,7 +1027,7 @@ class FrameWorker(threading.Thread):
         # First Restorer
         swap_original = swap.clone()   
 
-        if parameters["FaceRestorerEnableToggle"] or parameters["FaceRestorerEnableToggle"]:
+        if parameters["FaceRestorerEnableToggle"] or parameters["FaceRestorerEnable2Toggle"]:
             M_ref = tform.params[0:2]
             ones_column_ref = np.ones((kps_5.shape[0], 1), dtype=np.float32)
             kps_ref = np.hstack([kps_5, ones_column_ref]) @ M_ref.T
