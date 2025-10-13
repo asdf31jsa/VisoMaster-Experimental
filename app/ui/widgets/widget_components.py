@@ -484,52 +484,93 @@ class TargetFaceCardButton(CardButton):
         self.assigned_kv_map = None
         self.kv_data_color_transferred = False
 
-        if denoiser_on and self.assigned_input_faces:
-            first_input_face_id = list(self.assigned_input_faces.keys())[0]
-            input_face_button = main_window.input_faces.get(first_input_face_id)
+        def _extract_kv_from_face_button(face_button):
+            try:
+                from PIL import Image
+                models_processor = main_window.models_processor
+                models_processor.ensure_kv_extractor_loaded()
+                if not models_processor.kv_extractor:
+                    print("KV Extractor not available, cannot generate K/V map.")
+                    return None
 
-            if input_face_button:
-                # If the input face has a map, use it.
-                if hasattr(input_face_button, 'kv_map') and input_face_button.kv_map is not None:
-                    #print(f"Using cached K/V map for input face: {input_face_button.media_path}")
-                    self.assigned_kv_map = input_face_button.kv_map
+                cropped_face_np = getattr(face_button, "cropped_face", None)
+                if cropped_face_np is None:
+                    print("Input face button has no 'cropped_face'. Cannot make KV map.")
+                    return None
+
+                pil_img = Image.fromarray(cropped_face_np[..., ::-1])
+                if pil_img.size != (512, 512):
+                    pil_img = pil_img.resize((512, 512), Image.Resampling.LANCZOS)
+
+                kv_map_local = models_processor.kv_extractor.extract_kv(pil_img)
+                face_button.kv_map = kv_map_local  # cache
+                return kv_map_local
+            except Exception as e:
+                print(f"Error generating K/V map: {e}")
+                import traceback; traceback.print_exc()
+                return None
+            finally:
+                if not main_window.control.get('DenoiserUNetModelSelection'):
+                    main_window.models_processor.unload_kv_extractor()
+        if denoiser_on:
+            # 1) Bevorzugt: direkt aus assigned_input_faces (wie bei dir)
+            if self.assigned_input_faces:
+                first_input_face_id = list(self.assigned_input_faces.keys())[0]
+                input_face_button = main_window.input_faces.get(first_input_face_id)
+                if input_face_button:
+                    if getattr(input_face_button, 'kv_map', None) is not None:
+                        self.assigned_kv_map = input_face_button.kv_map
+                    else:
+                        self.assigned_kv_map = _extract_kv_from_face_button(input_face_button)
+
+            # 2) Fallback: wenn nur merged embeddings existieren, versuche irgendein Face-Button zu nehmen
+            if self.assigned_kv_map is None and self.assigned_merged_embeddings:
+                candidate_btn = self._pick_any_face_button_with_image(main_window)
+                if candidate_btn:
+                    if getattr(candidate_btn, 'kv_map', None) is not None:
+                        self.assigned_kv_map = candidate_btn.kv_map
+                    else:
+                                                       
+                        self.assigned_kv_map = _extract_kv_from_face_button(candidate_btn)
                 else:
-                    # Otherwise, generate a new one
-                    #print(f"Generating K/V map for input face: {input_face_button.media_path}")
-                    try:
-                        from PIL import Image
-                        models_processor = main_window.models_processor
-                        models_processor.ensure_kv_extractor_loaded()
-
-                        if models_processor.kv_extractor:
-                            cropped_face_np = input_face_button.cropped_face
-                            pil_img = Image.fromarray(cropped_face_np[..., ::-1])
-                            
-                            if pil_img.size != (512, 512):
-                                pil_img = pil_img.resize((512, 512), Image.Resampling.LANCZOS)
-
-                            kv_map = models_processor.kv_extractor.extract_kv(
-                                pil_img
-                            )
-                            
-                            # Cache the generated map on the input face button
-                            input_face_button.kv_map = kv_map
-                            
-                            # Assign to the target face
-                            self.assigned_kv_map = kv_map
-                            #print(f"Generated and cached K/V map.")
-                        else:
-                            print("KV Extractor not available, cannot generate K/V map.")
-                    except Exception as e:
-                        print(f"Error generating K/V map: {e}")
-                        traceback.print_exc()
-                    finally:
-                        if not main_window.control.get('DenoiserUNetModelSelection'):
-                             main_window.models_processor.unload_kv_extractor()
-
+                    print("No face button with image found for merged embeddings to build KV map.")
         if main_window.selected_target_face_id == self.face_id:
             main_window.current_kv_tensors_map = self.assigned_kv_map
 
+    def _pick_any_face_button_with_image(self, main_window):
+        """
+        Sucht robust nach einem Face-Button, der ein Bild (cropped_face) trägt,
+        um daraus ein KV-Map zu extrahieren.
+        Reihenfolge:
+          1) aktuell selektiertes Input-Face (UI)
+          2) irgendein input_faces-Eintrag
+          3) optional: merged_faces (falls vorhanden und mit cropped_face)
+        """
+        try:
+            # 1) aktuell selektiertes Input-Face (wenn vorhanden)
+            sel_id = getattr(main_window, "selected_input_face_id", None)
+            if sel_id and sel_id in getattr(main_window, "input_faces", {}):
+                btn = main_window.input_faces[sel_id]
+                if getattr(btn, "cropped_face", None) is not None:
+                    print("selected_input_face_id: ", sel_id)
+                    return btn
+
+            # 2) irgendein input_faces-Eintrag mit cropped_face
+            for _, btn in getattr(main_window, "input_faces", {}).items():
+                if getattr(btn, "cropped_face", None) is not None:
+                    print("irgendein input cropped_face: ", btn)
+                    return btn
+
+            # 3) optional: merged_faces (falls deine App das bietet)
+            if hasattr(main_window, "merged_faces"):
+                for _, btn in getattr(main_window, "merged_faces", {}).items():
+                    if getattr(btn, "cropped_face", None) is not None:
+                        print("merged_faces: ", btn)
+                        return btn
+        except Exception as e:
+            print(f"[KV-PICK] Error while searching face buttons: {e}")
+
+        return None
     def create_context_menu(self):
         # create context menu
         self.popMenu = QtWidgets.QMenu(self)

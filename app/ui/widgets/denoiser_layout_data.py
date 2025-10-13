@@ -30,6 +30,16 @@ DENOISER_LAYOUT_DATA: LayoutDictTypes = {
             'exec_function': control_actions.handle_denoiser_state_change,
             'exec_function_args': ['DenoiserUNetEnableBeforeRestorersToggle'],
         },
+        'AutoColorDenoiserBeforeRestorersEnableToggle': {
+            'level': 2,
+            'widget_type': 'ToggleButton',
+            'label': 'Color Adjust',
+            'control_name': 'AutoColorDenoiserBeforeRestorersEnableToggle',
+            'default': False,
+            'parentToggle': 'DenoiserUNetEnableBeforeRestorersToggle',
+            'requiredToggleValue': True,
+            'help': 'Autocolor Correction'
+        },                                                         
         'DenoiserModeSelectionBefore': {
             'level': 2,
             'widget_type': 'SelectionBox',
@@ -87,6 +97,16 @@ DENOISER_LAYOUT_DATA: LayoutDictTypes = {
             'exec_function': control_actions.handle_denoiser_state_change,
             'exec_function_args': ['DenoiserAfterFirstRestorerToggle'],
         },
+        'AutoColorDenoiserAfterFirstRestorerEnableToggle': {
+            'level': 2,
+            'widget_type': 'ToggleButton',
+            'label': 'Color Adjust',
+            'control_name': 'AutoColorDenoiserAfterFirstRestorerEnableToggle',
+            'default': False,
+            'parentToggle': 'DenoiserAfterFirstRestorerToggle',
+            'requiredToggleValue': True,
+            'help': 'Autocolor Correction'
+        },                                                            
         'DenoiserModeSelectionAfterFirst': {
             'level': 2,
             'widget_type': 'SelectionBox',
@@ -144,6 +164,16 @@ DENOISER_LAYOUT_DATA: LayoutDictTypes = {
             'exec_function': control_actions.handle_denoiser_state_change,
             'exec_function_args': ['DenoiserAfterRestorersToggle'],
         },
+        'AutoColorDenoiserAfterRestorersEnableToggle': {
+            'level': 2,
+            'widget_type': 'ToggleButton',
+            'label': 'Color Adjust',
+            'control_name': 'AutoColorDenoiserAfterRestorersEnableToggle',
+            'default': False,
+            'parentToggle': 'DenoiserAfterRestorersToggle',
+            'requiredToggleValue': True,
+            'help': 'Autocolor Correction'
+        },                                                        
         'DenoiserModeSelectionAfter': {
             'level': 2,
             'widget_type': 'SelectionBox',

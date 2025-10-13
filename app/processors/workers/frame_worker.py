@@ -137,9 +137,16 @@ class FrameWorker(threading.Thread):
 
         if not kv_map:
             if use_exclusive_path:
-                print(f"Denoiser {pass_suffix}: No source face for K/V, but 'Exclusive Reference Path' is ON. Skipping.")
-                return image_tensor_cxhxw_uint8
-
+                # letzte Chance: nutze evtl. in der MainWindow global gepufferte KV-Map
+                kv_map = getattr(self.main_window, "current_kv_tensors_map", None)
+                print("kv_map")
+            if not kv_map:
+                if use_exclusive_path:
+                    print(f"Denoiser {pass_suffix}: No K/V map available with 'Exclusive Reference Path'. Falling back to NON-exclusive for this pass.")
+                    use_exclusive_path = False  # <- nur für diesen Aufruf
+                else:
+                    # Non-exclusive Modus braucht kein KV; einfach weitermachen
+                    pass
         denoised_image = self.models_processor.apply_denoiser_unet(
             image_tensor_cxhxw_uint8,
             reference_kv_map=kv_map, 
@@ -985,11 +992,10 @@ class FrameWorker(threading.Thread):
         border_mask, border_mask_calc = self.get_border_mask(parameters)
         swap_mask = torch.ones((128, 128), dtype=torch.float32, device=self.models_processor.device)
         swap_mask = torch.unsqueeze(swap_mask,0)
-        #calc_mask = torch.ones((256, 256), dtype=torch.float32, device=self.models_processor.device)
-        #calc_mask = torch.unsqueeze(calc_mask,0)
-        
-        BgExclude = torch.ones((512, 512), dtype=torch.float32, device=self.models_processor.device)
-        BgExclude = torch.unsqueeze(BgExclude,0)
+
+        BgExclude = torch.ones((1, 512, 512), dtype=torch.float32, device=self.models_processor.device)
+        calc_mask = BgExclude.clone()
+
         diff_mask = BgExclude.clone()
         texture_mask_view = BgExclude.clone()     
         restore_mask = BgExclude.clone()
@@ -1013,6 +1019,10 @@ class FrameWorker(threading.Thread):
         # First Denoiser pass - Before Restorers
         if control.get('DenoiserUNetEnableBeforeRestorersToggle', False):
             swap = self._apply_denoiser_pass(swap, control, "Before", kv_map)
+            if control.get('AutoColorDenoiserBeforeRestorersEnableToggle', False):
+                #swap = faceutil.histogram_matching(original_face_512, swap, 100)                                             
+                swap = faceutil.histogram_matching(original_face_512, swap, 100)                                                        
+                                                        
 
         # First Restorer
         swap_original = swap.clone()   
@@ -1126,7 +1136,6 @@ class FrameWorker(threading.Thread):
         # -------------------------------
         # DFL XSeg
         # -------------------------------
-        calc_mask     = torch.ones((1, 512, 512), dtype=torch.float32, device=self.models_processor.device)
         if parameters.get("DFLXSegEnableToggle", False):
             # Basisbild für XSeg
             img_xseg_256 = t256_near(original_face_512)
@@ -1157,6 +1166,13 @@ class FrameWorker(threading.Thread):
             # Deine Logik: invertiert als Erlaubnis-/Calc-Masken
             calc_mask      = mask_forcalc_512 #torch.min(bg_exclude_512, mask_forcalc_512)        # [1,512,512]
             calc_mask_dill = mask_forcalc_dill_512 #torch.max((1-bg_exclude_dill_512),(1-mask_forcalc_512))
+            dill_mask_parsingblur = calc_mask_dill.clone()
+            if parameters['BGExcludeBlurAmountSlider'] > 0:
+                #orig = dill_mask_parsingblur.clone()
+                gauss = transforms.GaussianBlur(parameters['BGExcludeBlurAmountSlider']*2+1, (parameters['BGExcludeBlurAmountSlider']+1)*0.2)
+                dill_mask_parsingblur = gauss(dill_mask_parsingblur.type(torch.float32))
+                #dill_mask_parsingblur = torch.max(dill_mask_parsingblur, orig)
+                dill_mask_parsingblur = dill_mask_parsingblur.clamp(0,1)  
             
             # swap_mask reduzieren (128er)
             img_mask_128 = t128_bi(img_mask_512)
@@ -1167,9 +1183,11 @@ class FrameWorker(threading.Thread):
             calc_mask = t512_mask(swap_mask.clone()).clamp(0,1)
             calc_mask_dill = calc_mask.clone()
             mask_forcalc_512 = calc_mask.clone()
+            dill_mask_parsingblur = calc_mask.clone()
         #calc_mask = calc_mask + texture_exclude_512
         #calc_mask = torch.where(calc_mask > 0.1, 1, 0).float()
-
+        
+        original_face_512 = swap * (1-dill_mask_parsingblur) + original_face_512 * (dill_mask_parsingblur)
         # First Restorer and Auto Restore pass (after masks)
         if parameters["FaceRestorerEnableToggle"] and parameters["FaceRestorerAutoEnableToggle"]:
 
@@ -1222,6 +1240,9 @@ class FrameWorker(threading.Thread):
         # Second Denoiser pass - After First Restorer
         if control.get('DenoiserAfterFirstRestorerToggle', False):
             swap = self._apply_denoiser_pass(swap, control, "AfterFirst", kv_map)
+            if control.get('AutoColorDenoiserAfterFirstRestorerEnableToggle', False):
+                #swap = faceutil.histogram_matching(original_face_512, swap, 100)                                             
+                swap = faceutil.histogram_matching(original_face_512, swap, 100)
 
         if parameters["FaceRestorerEnable2Toggle"] and not parameters["FaceRestorerEnable2EndToggle"]:
             swap_original2 = swap.clone()
@@ -1282,7 +1303,7 @@ class FrameWorker(threading.Thread):
         if parameters.get("AutoColorEnableToggle", False) and not parameters.get("AutoColorEndEnableToggle", False):
             # calc_mask ist [1,512,512], 1=erlaubt
             mask_autocolor = calc_mask_dill.clone()
-            mask_autocolor = (mask_autocolor > 0.99)
+            mask_autocolor = (mask_autocolor > 0.90)
             #swap_backup = swap.clone()
             
 
@@ -1419,9 +1440,8 @@ class FrameWorker(threading.Thread):
                 TransferTextureThetaSlider, clip_limit, alpha_clahe, grid_size, global_gamma, global_contrast
             )
             mask_autocolor = calc_mask_dill.clone()
-            mask_autocolor = (mask_autocolor > 0.99)
+            mask_autocolor = (mask_autocolor > 0.90)
             
-            # Histogrammvor-Anpassungen (wie bei dir)
             swap_texture_backup = faceutil.histogram_matching_DFL_Orig(original_face_512, swap.clone(), mask_autocolor, 100)
             gradient_texture = faceutil.histogram_matching_DFL_Orig(original_face_512, gradient_texture, mask_autocolor, 100)
 
@@ -1569,6 +1589,9 @@ class FrameWorker(threading.Thread):
         # Third denoiser pass - After restorers
         if control.get('DenoiserAfterRestorersToggle', False):
             swap = self._apply_denoiser_pass(swap, control, "After", kv_map)
+            if control.get('AutoColorDenoiserAfterRestorersEnableToggle', False):
+                #swap = faceutil.histogram_matching(original_face_512, swap, 100)                                             
+                swap = faceutil.histogram_matching(original_face_512, swap, 100)
 
         # -------------------------------
         # AutoColor (Maske 512) - second pass at the end (to color the restored and denoized faces after the first pipeline pass)
@@ -1576,7 +1599,7 @@ class FrameWorker(threading.Thread):
         if parameters.get("AutoColorEnableToggle", False) and parameters.get("AutoColorEndEnableToggle", False):
             # calc_mask ist [1,512,512], 1=erlaubt
             mask_autocolor = calc_mask_dill.clone()
-            mask_autocolor = (mask_autocolor > 0.99)
+            mask_autocolor = (mask_autocolor > 0.90)
             #swap_backup = swap.clone()
             
             if parameters['AutoColorTransferTypeSelection'] == 'Test':
@@ -1642,7 +1665,7 @@ class FrameWorker(threading.Thread):
             block_shift_blend = parameters["BlockShiftBlendAmountSlider"]/100.0
             swap = swap2 * block_shift_blend + swap * (1.0 - block_shift_blend)  
 
-            swap = torch.add(torch.mul(swap2, block_shift_blend), torch.mul(swap, 1 - block_shift_blend))                          
+            #swap = torch.add(torch.mul(swap2, block_shift_blend), torch.mul(swap, 1 - block_shift_blend))                          
             
         if parameters['ColorNoiseDecimalSlider'] > 0:
             noise = (torch.rand_like(swap) - 0.5) * 2 * parameters['ColorNoiseDecimalSlider']
