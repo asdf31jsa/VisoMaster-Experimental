@@ -411,6 +411,11 @@ class FaceMasks:
                         tex_o = (tex_o - sub).clamp_min(0)
 
             comb = torch.minimum(1.0 - tex.clamp(0,1), 1.0 - tex_o.clamp(0,1))  # [256,256]
+
+            bg_classes = [0, 15, 16, 18]
+            bg_swap_256 = self._mask_from_labels_lut(labels_swap, bg_classes)  # [256,256], float {0,1}
+            comb = comb * (1.0 - bg_swap_256)  # Hintergrund -> 0 in der texture_mask
+
             comb = (to512_bi(comb.unsqueeze(0))).clamp(0,1)
             result["texture_mask"] = comb  # [1,512,512]
 
