@@ -33,7 +33,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
         },
         "SwapperResAutoSelectEnableToggle": {
             "level": 2,
-            "label": "Enable Auto Resolution",
+            "label": "Auto Resolution",
             "default": False,
             "parentSelection": "SwapModelSelection",
             "requiredSelectionValue": "Inswapper128",
@@ -1051,7 +1051,7 @@ SWAPPER_LAYOUT_DATA: LayoutDictTypes = {
             "label": "Texture Mask Blur",
             "min_value": "0",
             "max_value": "20",
-            "default": "4",
+            "default": "10",
             "step": 1,
             "parentToggle": "TransferTextureEnableToggle",
             "requiredToggleValue": True,

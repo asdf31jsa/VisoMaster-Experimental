@@ -2398,14 +2398,28 @@ class FrameWorker(threading.Thread):
             # final erlauben = mask_final_512 * (1 - (1 - mask_vgg_512)) = mask_final_512 * mask_vgg
             # mask_final_512 = (mask_final_512 * mask_vgg_512).clamp(0,1)
             # mask_final_512 = (mask_final_512 + mask_calc).clamp(0,1)
+            
+            # Feather mask edges using Gaussian blur with perceptually even slider
+            # Replaces previous torch.max() approach which preserved hard edges
+            # 0 = sharp edges, 20 = full blur; perceptual mapping ensures smooth increase across slider
             if parameters["FaceParserBlurTextureSlider"] > 0:
-                orig = mask_final_512.clone()
-                gauss = transforms.GaussianBlur(
-                    parameters["FaceParserBlurTextureSlider"] * 2 + 1,
-                    (parameters["FaceParserBlurTextureSlider"] + 1) * 0.2,
-                )
-                mask_final_512 = gauss(mask_final_512.type(torch.float32))
-                mask_final_512 = torch.max(mask_final_512, orig).clamp(0.0, 1.0)
+                b = parameters["FaceParserBlurTextureSlider"]
+
+                # Cube root scaling for perceptual smoothness
+                # Makes low slider values noticeable while maintaining gradual increase
+                strength = min(1.0, (b / 20.0) ** (1/3))
+
+                # Gaussian kernel size grows with slider
+                kernel_size = b * 2 + 1
+                sigma = (b + 1) * 0.2
+                gauss = transforms.GaussianBlur(kernel_size, sigma)
+
+                orig = mask_final_512.float()
+                blurred = gauss(orig)
+
+                # Linear interpolation between original and blurred mask
+                mask_final_512 = torch.lerp(orig, blurred, strength).clamp(0.0, 1.0)
+
 
             # Mischen:  w = alpha*(1 - mask_final_512)
             alpha_t = parameters["TransferTextureBlendAmountSlider"] / 100.0
